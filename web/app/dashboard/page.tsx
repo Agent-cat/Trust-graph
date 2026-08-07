@@ -1,40 +1,67 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { authClient } from "@/lib/auth-client";
 
-interface Stats {
-  totalCases: number;
-  openCases: number;
-  criticalCases: number;
-  totalSellers: number;
-  flaggedSellers: number;
+interface DashboardStats {
+  totalProducts?: number;
+  totalOrders?: number;
+  totalRevenue?: number;
+  totalUsers?: number;
 }
 
 export default function DashboardPage() {
-  const [stats, setStats] = useState<Stats | null>(null);
+  const { data: session } = authClient.useSession();
+  const user = session?.user;
+  const role = (user as any)?.role || "customer";
+  const [stats, setStats] = useState<DashboardStats>({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function fetchStats() {
       try {
-        const [casesRes, sellersRes] = await Promise.all([
-          fetch("http://localhost:4000/api/cases"),
-          fetch("http://localhost:4000/api/sellers"),
-        ]);
+        // Fetch stats based on role
+        if (role === "admin") {
+          const [usersRes, ordersRes, productsRes] = await Promise.all([
+            fetch("http://localhost:4000/api/users/count"),
+            fetch("http://localhost:4000/api/orders/count"),
+            fetch("http://localhost:4000/api/products/count"),
+          ]);
 
-        const casesData = await casesRes.json();
-        const sellersData = await sellersRes.json();
+          const [usersData, ordersData, productsData] = await Promise.all([
+            usersRes.json(),
+            ordersRes.json(),
+            productsRes.json(),
+          ]);
 
-        const cases = casesData.data || [];
-        const sellers = sellersData.data || [];
+          setStats({
+            totalUsers: usersData.data || 0,
+            totalOrders: ordersData.data || 0,
+            totalProducts: productsData.data || 0,
+          });
+        } else if (role === "seller") {
+          const [productsRes, ordersRes] = await Promise.all([
+            fetch("http://localhost:4000/api/products/mine"),
+            fetch("http://localhost:4000/api/orders/seller"),
+          ]);
 
-        setStats({
-          totalCases: cases.length,
-          openCases: cases.filter((c: any) => c.status === "open").length,
-          criticalCases: cases.filter((c: any) => c.level === "CRITICAL").length,
-          totalSellers: sellers.length,
-          flaggedSellers: sellers.filter((s: any) => s.isFlagged).length,
-        });
+          const [productsData, ordersData] = await Promise.all([
+            productsRes.json(),
+            ordersRes.json(),
+          ]);
+
+          setStats({
+            totalProducts: productsData.data?.length || 0,
+            totalOrders: ordersData.data?.length || 0,
+          });
+        } else {
+          const ordersRes = await fetch("http://localhost:4000/api/orders/mine");
+          const ordersData = await ordersRes.json();
+
+          setStats({
+            totalOrders: ordersData.data?.length || 0,
+          });
+        }
       } catch (error) {
         console.error("Failed to fetch stats:", error);
       } finally {
@@ -43,7 +70,7 @@ export default function DashboardPage() {
     }
 
     fetchStats();
-  }, []);
+  }, [role]);
 
   if (loading) {
     return (
@@ -56,61 +83,143 @@ export default function DashboardPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-bold text-black">Dashboard</h1>
-        <p className="text-gray-500 text-sm mt-1">Fraud detection overview</p>
+        <h1 className="text-2xl font-bold text-black">
+          Welcome, {user?.name || "User"}
+        </h1>
+        <p className="text-gray-500 text-sm mt-1">
+          {role === "admin"
+            ? "Admin Dashboard"
+            : role === "seller"
+            ? "Seller Dashboard"
+            : "Customer Portal"}
+        </p>
       </div>
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard
-          title="Total Cases"
-          value={stats?.totalCases || 0}
-          change="+12%"
-          trend="up"
-        />
-        <StatCard
-          title="Open Cases"
-          value={stats?.openCases || 0}
-          change="+3"
-          trend="up"
-        />
-        <StatCard
-          title="Critical"
-          value={stats?.criticalCases || 0}
-          change="-2"
-          trend="down"
-        />
-        <StatCard
-          title="Flagged Sellers"
-          value={stats?.flaggedSellers || 0}
-          change="+1"
-          trend="up"
-        />
+        {role === "admin" && (
+          <>
+            <StatCard title="Total Users" value={stats.totalUsers || 0} />
+            <StatCard title="Total Orders" value={stats.totalOrders || 0} />
+            <StatCard title="Total Products" value={stats.totalProducts || 0} />
+            <StatCard title="Revenue" value={0} prefix="₹" />
+          </>
+        )}
+
+        {role === "seller" && (
+          <>
+            <StatCard title="My Products" value={stats.totalProducts || 0} />
+            <StatCard title="Orders" value={stats.totalOrders || 0} />
+            <StatCard title="Revenue" value={0} prefix="₹" />
+            <StatCard title="Rating" value={0} suffix="/5" />
+          </>
+        )}
+
+        {role === "customer" && (
+          <>
+            <StatCard title="My Orders" value={stats.totalOrders || 0} />
+            <StatCard title="Cart Items" value={0} />
+            <StatCard title="Wishlist" value={0} />
+            <StatCard title="Points" value={0} />
+          </>
+        )}
       </div>
 
       {/* Quick Actions */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <a
-          href="/dashboard/cases"
-          className="block p-6 bg-black text-white rounded-xl hover:bg-gray-800 transition-colors"
-        >
-          <p className="text-lg font-semibold">View Cases</p>
-          <p className="text-gray-400 text-sm mt-1">Review flagged transactions</p>
-        </a>
-        <a
-          href="/dashboard/graph"
-          className="block p-6 border-2 border-black rounded-xl hover:bg-gray-50 transition-colors"
-        >
-          <p className="text-lg font-semibold text-black">Graph Analysis</p>
-          <p className="text-gray-500 text-sm mt-1">Explore fraud networks</p>
-        </a>
-        <a
-          href="/dashboard/demo"
-          className="block p-6 border-2 border-gray-200 rounded-xl hover:border-gray-300 transition-colors"
-        >
-          <p className="text-lg font-semibold text-black">Run Demo</p>
-          <p className="text-gray-500 text-sm mt-1">Test the system</p>
-        </a>
+        {role === "admin" && (
+          <>
+            <a
+              href="/dashboard/users"
+              className="block p-6 bg-black text-white rounded-xl hover:bg-gray-800 transition-colors"
+            >
+              <p className="text-lg font-semibold">Manage Users</p>
+              <p className="text-gray-400 text-sm mt-1">
+                View and manage all users
+              </p>
+            </a>
+            <a
+              href="/dashboard/products"
+              className="block p-6 border-2 border-black rounded-xl hover:bg-gray-50 transition-colors"
+            >
+              <p className="text-lg font-semibold text-black">Products</p>
+              <p className="text-gray-500 text-sm mt-1">
+                Manage product listings
+              </p>
+            </a>
+            <a
+              href="/dashboard/orders"
+              className="block p-6 border-2 border-gray-200 rounded-xl hover:border-gray-300 transition-colors"
+            >
+              <p className="text-lg font-semibold text-black">Orders</p>
+              <p className="text-gray-500 text-sm mt-1">View all orders</p>
+            </a>
+          </>
+        )}
+
+        {role === "seller" && (
+          <>
+            <a
+              href="/dashboard/products/new"
+              className="block p-6 bg-black text-white rounded-xl hover:bg-gray-800 transition-colors"
+            >
+              <p className="text-lg font-semibold">Add Product</p>
+              <p className="text-gray-400 text-sm mt-1">
+                Create a new listing
+              </p>
+            </a>
+            <a
+              href="/dashboard/products"
+              className="block p-6 border-2 border-black rounded-xl hover:bg-gray-50 transition-colors"
+            >
+              <p className="text-lg font-semibold text-black">My Products</p>
+              <p className="text-gray-500 text-sm mt-1">
+                Manage your products
+              </p>
+            </a>
+            <a
+              href="/dashboard/orders"
+              className="block p-6 border-2 border-gray-200 rounded-xl hover:border-gray-300 transition-colors"
+            >
+              <p className="text-lg font-semibold text-black">Orders</p>
+              <p className="text-gray-500 text-sm mt-1">
+                View customer orders
+              </p>
+            </a>
+          </>
+        )}
+
+        {role === "customer" && (
+          <>
+            <a
+              href="/dashboard/products"
+              className="block p-6 bg-black text-white rounded-xl hover:bg-gray-800 transition-colors"
+            >
+              <p className="text-lg font-semibold">Browse Products</p>
+              <p className="text-gray-400 text-sm mt-1">
+                Discover amazing products
+              </p>
+            </a>
+            <a
+              href="/dashboard/cart"
+              className="block p-6 border-2 border-black rounded-xl hover:bg-gray-50 transition-colors"
+            >
+              <p className="text-lg font-semibold text-black">My Cart</p>
+              <p className="text-gray-500 text-sm mt-1">
+                Review your cart items
+              </p>
+            </a>
+            <a
+              href="/dashboard/orders"
+              className="block p-6 border-2 border-gray-200 rounded-xl hover:border-gray-300 transition-colors"
+            >
+              <p className="text-lg font-semibold text-black">My Orders</p>
+              <p className="text-gray-500 text-sm mt-1">
+                Track your orders
+              </p>
+            </a>
+          </>
+        )}
       </div>
     </div>
   );
@@ -119,24 +228,21 @@ export default function DashboardPage() {
 function StatCard({
   title,
   value,
-  change,
-  trend,
+  prefix = "",
+  suffix = "",
 }: {
   title: string;
   value: number;
-  change: string;
-  trend: "up" | "down";
+  prefix?: string;
+  suffix?: string;
 }) {
   return (
     <div className="p-6 border border-gray-200 rounded-xl">
       <p className="text-sm text-gray-500">{title}</p>
-      <p className="text-3xl font-bold text-black mt-2">{value}</p>
-      <p
-        className={`text-xs mt-2 ${
-          trend === "up" ? "text-red-600" : "text-green-600"
-        }`}
-      >
-        {change}
+      <p className="text-3xl font-bold text-black mt-2">
+        {prefix}
+        {value}
+        {suffix}
       </p>
     </div>
   );

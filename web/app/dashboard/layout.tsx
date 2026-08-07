@@ -2,16 +2,29 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { authClient } from "@/lib/auth-client";
 
-const navigation = [
+const adminNavigation = [
   { name: "Dashboard", href: "/dashboard" },
-  { name: "Demo", href: "/dashboard/demo" },
-  { name: "Cases", href: "/dashboard/cases" },
-  { name: "Graph", href: "/dashboard/graph" },
-  { name: "Appeals", href: "/dashboard/appeals" },
-  { name: "Audit Logs", href: "/dashboard/audit" },
+  { name: "Users", href: "/dashboard/users" },
   { name: "Sellers", href: "/dashboard/sellers" },
-  { name: "Transactions", href: "/dashboard/transactions" },
+  { name: "Orders", href: "/dashboard/orders" },
+  { name: "Products", href: "/dashboard/products" },
+  { name: "Audit Logs", href: "/dashboard/audit" },
+];
+
+const sellerNavigation = [
+  { name: "Dashboard", href: "/dashboard" },
+  { name: "My Products", href: "/dashboard/products" },
+  { name: "Orders", href: "/dashboard/orders" },
+  { name: "Analytics", href: "/dashboard/analytics" },
+];
+
+const customerNavigation = [
+  { name: "Dashboard", href: "/dashboard" },
+  { name: "Products", href: "/dashboard/products" },
+  { name: "My Orders", href: "/dashboard/orders" },
+  { name: "Cart", href: "/dashboard/cart" },
 ];
 
 export default function DashboardLayout({
@@ -20,6 +33,26 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const { data: session } = authClient.useSession();
+  const user = session?.user;
+  const role = (user as any)?.role || "customer";
+
+  const navigation =
+    role === "admin"
+      ? adminNavigation
+      : role === "seller"
+      ? sellerNavigation
+      : customerNavigation;
+
+  async function handleSignOut() {
+    await authClient.signOut({
+      fetchOptions: {
+        onSuccess: () => {
+          window.location.href = "/sign-in";
+        },
+      },
+    });
+  }
 
   return (
     <div className="flex h-screen bg-white">
@@ -27,7 +60,13 @@ export default function DashboardLayout({
       <aside className="w-64 bg-black text-white flex flex-col">
         <div className="p-6 border-b border-gray-800">
           <h1 className="text-lg font-bold tracking-tight">Trust Graph</h1>
-          <p className="text-xs text-gray-400 mt-1">Fraud Detection System</p>
+          <p className="text-xs text-gray-400 mt-1">
+            {role === "admin"
+              ? "Admin Panel"
+              : role === "seller"
+              ? "Seller Dashboard"
+              : "Customer Portal"}
+          </p>
         </div>
 
         <nav className="flex-1 p-4 space-y-1">
@@ -53,7 +92,18 @@ export default function DashboardLayout({
         </nav>
 
         <div className="p-4 border-t border-gray-800">
-          <p className="text-xs text-gray-500">v1.0.0</p>
+          {user && (
+            <div className="mb-3">
+              <p className="text-sm font-medium truncate">{user.name}</p>
+              <p className="text-xs text-gray-400 truncate">{user.email}</p>
+            </div>
+          )}
+          <button
+            onClick={handleSignOut}
+            className="w-full px-4 py-2 text-sm text-gray-400 hover:text-white hover:bg-gray-900 rounded-lg transition-colors text-left"
+          >
+            Sign out
+          </button>
         </div>
       </aside>
 
