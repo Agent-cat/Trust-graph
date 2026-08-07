@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { PrismaClient } from "../generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { calculateRisk, determineAction } from "../risk/calculateRisk";
+import { runQuery } from "../utils/neo4j";
 import { z } from "zod";
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! });
@@ -10,6 +11,48 @@ const prisma = new PrismaClient({ adapter });
 const AnalyzeRequestSchema = z.object({
   transactionId: z.string().min(1),
 });
+
+async function getGraphRisk(sellerId: string) {
+  try {
+    // Find shared devices
+    const sharedDevices = await runQuery(`
+      MATCH (s:Seller {id: $sellerId})-[:USES_DEVICE]->(d:Device)<-[:USES_DEVICE]-(c:Customer)
+      WITH d, count(c) as customerCount
+      WHERE customerCount > 1
+      RETURN d.id as deviceId, customerCount
+      ORDER BY customerCount DESC
+    `, { sellerId });
+
+    // Find shared IPs
+    const sharedIps = await runQuery(`
+      MATCH (s:Seller {id: $sellerId})-[:USES_IP]->(ip:IP)<-[:USES_IP]-(c:Customer)
+      WITH ip, count(c) as customerCount
+      WHERE customerCount > 1
+      RETURN ip.address as ip, customerCount
+      ORDER BY customerCount DESC
+    `, { sellerId });
+
+    let graphRisk = 0;
+    const reasons: string[] = [];
+
+    if (sharedDevices.length > 0) {
+      const maxShared = Math.max(...sharedDevices.map((d: any) => Number(d.customerCount)));
+      graphRisk += Math.min(maxShared * 12, 45);
+      reasons.push(`Device shared with ${maxShared} customers`);
+    }
+
+    if (sharedIps.length > 0) {
+      const maxShared = Math.max(...sharedIps.map((i: any) => Number(i.customerCount)));
+      graphRisk += Math.min(maxShared * 10, 35);
+      reasons.push(`IP shared with ${maxShared} customers`);
+    }
+
+    return { graphRisk: Math.min(graphRisk, 100), reasons };
+  } catch (error) {
+    console.error("Graph risk error:", error);
+    return { graphRisk: 0, reasons: [] };
+  }
+}
 
 export async function analyzeTransaction(req: Request, res: Response) {
   try {
@@ -56,15 +99,19 @@ export async function analyzeTransaction(req: Request, res: Response) {
 
     const totalOrders = seller.totalOrders || 1;
 
-    // Run risk engine
+    // Get graph risk from Neo4j
+    const { graphRisk, reasons: graphReasons } = await getGraphRisk(seller.id);
+
+    // Run risk engine with graph risk
     const risk = calculateRisk({
       amount: transaction.amount,
       refundRate: seller.refundRate,
       accountAgeDays: seller.accountAgeDays,
       ipRisk: 50, // Placeholder - would come from external API
-      deviceLinkedAccounts: 2, // Placeholder - would come from graph
       orderCount24h: recentOrders,
       disputedRate: disputedOrders / totalOrders,
+      graphRisk,
+      graphReasons,
     });
 
     const action = determineAction(risk.level);
@@ -108,6 +155,7 @@ export async function analyzeTransaction(req: Request, res: Response) {
           riskScore: risk.score,
           level: risk.level,
           action,
+          graphRisk,
         },
         performedBy: "system",
       },
