@@ -58,7 +58,7 @@ export default function SellerDetailPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-gray-500">Loading seller details...</div>
+        <div className="text-gray-400 text-sm">Loading seller details...</div>
       </div>
     );
   }
@@ -71,17 +71,39 @@ export default function SellerDetailPage() {
     );
   }
 
+  const getLevelBadge = (level: string) => {
+    const styles: Record<string, string> = {
+      LOW: "bg-gray-100 text-gray-700",
+      MEDIUM: "bg-yellow-100 text-yellow-700",
+      HIGH: "bg-orange-100 text-orange-700",
+      CRITICAL: "bg-red-100 text-red-700",
+    };
+    return (
+      <span
+        className={`px-2.5 py-1 rounded-full text-xs font-medium ${styles[level]}`}
+      >
+        {level}
+      </span>
+    );
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">{seller.name}</h1>
-          <p className="text-gray-500">{seller.email}</p>
+          <Link
+            href="/dashboard/sellers"
+            className="text-sm text-gray-500 hover:text-black transition-colors"
+          >
+            ← Back to sellers
+          </Link>
+          <h1 className="text-2xl font-bold text-black mt-2">{seller.name}</h1>
+          <p className="text-gray-500 text-sm">{seller.email}</p>
         </div>
         {seller.isFlagged && (
-          <span className="px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800">
-            🚨 Flagged
+          <span className="px-3 py-1 rounded-full text-sm font-medium bg-black text-white">
+            Flagged
           </span>
         )}
       </div>
@@ -91,65 +113,86 @@ export default function SellerDetailPage() {
         <div className="lg:col-span-2 space-y-6">
           {/* Key Metrics */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="bg-white rounded-lg shadow p-4">
-              <p className="text-sm text-gray-500">Account Age</p>
-              <p className="text-2xl font-bold">{seller.accountAgeDays}</p>
-              <p className="text-xs text-gray-400">days</p>
+            <div className="border border-gray-200 rounded-xl p-4">
+              <p className="text-xs text-gray-400 uppercase tracking-wider">
+                Account Age
+              </p>
+              <p className="text-2xl font-bold text-black mt-1">
+                {seller.accountAgeDays}
+              </p>
+              <p className="text-xs text-gray-500">days</p>
             </div>
-            <div className="bg-white rounded-lg shadow p-4">
-              <p className="text-sm text-gray-500">Refund Rate</p>
-              <p className="text-2xl font-bold">
+            <div className="border border-gray-200 rounded-xl p-4">
+              <p className="text-xs text-gray-400 uppercase tracking-wider">
+                Refund Rate
+              </p>
+              <p className="text-2xl font-bold text-black mt-1">
                 {(seller.refundRate * 100).toFixed(1)}%
               </p>
             </div>
-            <div className="bg-white rounded-lg shadow p-4">
-              <p className="text-sm text-gray-500">Total Orders</p>
-              <p className="text-2xl font-bold">{seller.totalOrders}</p>
+            <div className="border border-gray-200 rounded-xl p-4">
+              <p className="text-xs text-gray-400 uppercase tracking-wider">
+                Total Orders
+              </p>
+              <p className="text-2xl font-bold text-black mt-1">
+                {seller.totalOrders}
+              </p>
             </div>
-            <div className="bg-white rounded-lg shadow p-4">
-              <p className="text-sm text-gray-500">Revenue</p>
-              <p className="text-2xl font-bold">
+            <div className="border border-gray-200 rounded-xl p-4">
+              <p className="text-xs text-gray-400 uppercase tracking-wider">
+                Revenue
+              </p>
+              <p className="text-2xl font-bold text-black mt-1">
                 ₹{seller.totalRevenue.toLocaleString()}
               </p>
             </div>
           </div>
 
           {/* Recent Orders */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-lg font-semibold mb-4">Recent Orders</h2>
+          <div className="border border-gray-200 rounded-xl p-6">
+            <h2 className="text-sm font-medium text-gray-500 mb-4">
+              Recent Orders
+            </h2>
             {seller.orders.length === 0 ? (
-              <p className="text-gray-500">No orders found</p>
+              <p className="text-gray-500 text-sm">No orders found</p>
             ) : (
               <table className="min-w-full">
                 <thead>
-                  <tr className="border-b">
-                    <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2">
+                  <tr className="border-b border-gray-200">
+                    <th className="text-left text-xs font-medium text-gray-400 uppercase tracking-wider pb-3">
                       Order ID
                     </th>
-                    <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2">
+                    <th className="text-left text-xs font-medium text-gray-400 uppercase tracking-wider pb-3">
                       Amount
                     </th>
-                    <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2">
+                    <th className="text-left text-xs font-medium text-gray-400 uppercase tracking-wider pb-3">
                       Status
                     </th>
-                    <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2">
+                    <th className="text-left text-xs font-medium text-gray-400 uppercase tracking-wider pb-3">
                       Date
                     </th>
                   </tr>
                 </thead>
                 <tbody>
                   {seller.orders.map((order) => (
-                    <tr key={order.id} className="border-b last:border-0">
-                      <td className="py-3 text-sm font-mono">{order.id.slice(0, 12)}...</td>
-                      <td className="py-3 text-sm">₹{order.amount.toLocaleString()}</td>
+                    <tr
+                      key={order.id}
+                      className="border-b border-gray-100 last:border-0"
+                    >
+                      <td className="py-3 text-sm font-mono text-gray-600">
+                        {order.id.slice(0, 12)}...
+                      </td>
+                      <td className="py-3 text-sm font-medium text-black">
+                        ₹{order.amount.toLocaleString()}
+                      </td>
                       <td className="py-3">
                         <span
-                          className={`px-2 py-1 rounded-full text-xs ${
+                          className={`px-2 py-1 rounded-full text-xs font-medium ${
                             order.status === "completed"
-                              ? "bg-green-100 text-green-800"
+                              ? "bg-green-100 text-green-700"
                               : order.status === "refunded"
-                                ? "bg-yellow-100 text-yellow-800"
-                                : "bg-red-100 text-red-800"
+                                ? "bg-yellow-100 text-yellow-700"
+                                : "bg-red-100 text-red-700"
                           }`}
                         >
                           {order.status}
@@ -169,48 +212,50 @@ export default function SellerDetailPage() {
         {/* Sidebar */}
         <div className="space-y-6">
           {/* Contact Info */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-lg font-semibold mb-4">Contact Info</h2>
-            <dl className="space-y-3">
+          <div className="border border-gray-200 rounded-xl p-6">
+            <h2 className="text-sm font-medium text-gray-500 mb-4">
+              Contact Info
+            </h2>
+            <dl className="space-y-4">
               <div>
-                <dt className="text-sm text-gray-500">Phone</dt>
-                <dd className="text-sm font-medium">{seller.phone || "N/A"}</dd>
+                <dt className="text-xs text-gray-400 uppercase tracking-wider">
+                  Phone
+                </dt>
+                <dd className="text-sm font-medium text-black mt-1">
+                  {seller.phone || "N/A"}
+                </dd>
               </div>
               <div>
-                <dt className="text-sm text-gray-500">GSTIN</dt>
-                <dd className="text-sm font-medium">{seller.gstin || "N/A"}</dd>
+                <dt className="text-xs text-gray-400 uppercase tracking-wider">
+                  GSTIN
+                </dt>
+                <dd className="text-sm font-medium text-black mt-1">
+                  {seller.gstin || "N/A"}
+                </dd>
               </div>
             </dl>
           </div>
 
           {/* Fraud Cases */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-lg font-semibold mb-4">Fraud Cases</h2>
+          <div className="border border-gray-200 rounded-xl p-6">
+            <h2 className="text-sm font-medium text-gray-500 mb-4">
+              Fraud Cases
+            </h2>
             {seller.fraudCases.length === 0 ? (
-              <p className="text-gray-500">No fraud cases</p>
+              <p className="text-gray-500 text-sm">No fraud cases</p>
             ) : (
               <div className="space-y-3">
                 {seller.fraudCases.map((fraudCase) => (
                   <Link
                     key={fraudCase.id}
                     href={`/dashboard/cases/${fraudCase.id}`}
-                    className="block p-3 bg-gray-50 rounded-lg hover:bg-gray-100"
+                    className="block p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
                   >
                     <div className="flex items-center justify-between">
-                      <span className="font-medium text-sm">
+                      <span className="font-medium text-sm text-black">
                         {fraudCase.caseNumber}
                       </span>
-                      <span
-                        className={`px-2 py-1 rounded-full text-xs ${
-                          fraudCase.level === "CRITICAL"
-                            ? "bg-red-100 text-red-800"
-                            : fraudCase.level === "HIGH"
-                              ? "bg-orange-100 text-orange-800"
-                              : "bg-yellow-100 text-yellow-800"
-                        }`}
-                      >
-                        {fraudCase.level}
-                      </span>
+                      {getLevelBadge(fraudCase.level)}
                     </div>
                     <p className="text-xs text-gray-500 mt-1">
                       Risk: {fraudCase.riskScore} | {fraudCase.status}

@@ -8,6 +8,7 @@ import transactionsRoutes from "./routes/transactions";
 import appealsRoutes from "./routes/appeals";
 import auditLogRoutes from "./routes/auditLogs";
 import graphRoutes from "./routes/graph";
+import fairnessRoutes from "./routes/fairness";
 
 const app = express();
 
@@ -31,6 +32,7 @@ app.use("/api/transactions", transactionsRoutes);
 app.use("/api/appeals", appealsRoutes);
 app.use("/api/audit-logs", auditLogRoutes);
 app.use("/api/graph", graphRoutes);
+app.use("/api/fairness", fairnessRoutes);
 
 app.listen(PORT, () => {
   console.log(`🚀 Trust Graph API running on http://localhost:${PORT}`);

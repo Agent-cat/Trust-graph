@@ -48,16 +48,16 @@ export default function DashboardPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-gray-500">Loading...</div>
+        <div className="text-gray-400 text-sm">Loading...</div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-        <p className="text-gray-500">Fraud detection overview</p>
+        <h1 className="text-2xl font-bold text-black">Dashboard</h1>
+        <p className="text-gray-500 text-sm mt-1">Fraud detection overview</p>
       </div>
 
       {/* Stats Grid */}
@@ -65,46 +65,52 @@ export default function DashboardPage() {
         <StatCard
           title="Total Cases"
           value={stats?.totalCases || 0}
-          icon="🔍"
-          color="blue"
+          change="+12%"
+          trend="up"
         />
         <StatCard
           title="Open Cases"
           value={stats?.openCases || 0}
-          icon="📋"
-          color="yellow"
+          change="+3"
+          trend="up"
         />
         <StatCard
           title="Critical"
           value={stats?.criticalCases || 0}
-          icon="⚠️"
-          color="red"
+          change="-2"
+          trend="down"
         />
         <StatCard
           title="Flagged Sellers"
           value={stats?.flaggedSellers || 0}
-          icon="🚨"
-          color="orange"
+          change="+1"
+          trend="up"
         />
       </div>
 
       {/* Quick Actions */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-lg font-semibold mb-4">Quick Actions</h2>
-        <div className="flex gap-4">
-          <a
-            href="/dashboard/cases"
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            View All Cases
-          </a>
-          <a
-            href="/dashboard/sellers"
-            className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
-          >
-            Manage Sellers
-          </a>
-        </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <a
+          href="/dashboard/cases"
+          className="block p-6 bg-black text-white rounded-xl hover:bg-gray-800 transition-colors"
+        >
+          <p className="text-lg font-semibold">View Cases</p>
+          <p className="text-gray-400 text-sm mt-1">Review flagged transactions</p>
+        </a>
+        <a
+          href="/dashboard/graph"
+          className="block p-6 border-2 border-black rounded-xl hover:bg-gray-50 transition-colors"
+        >
+          <p className="text-lg font-semibold text-black">Graph Analysis</p>
+          <p className="text-gray-500 text-sm mt-1">Explore fraud networks</p>
+        </a>
+        <a
+          href="/dashboard/demo"
+          className="block p-6 border-2 border-gray-200 rounded-xl hover:border-gray-300 transition-colors"
+        >
+          <p className="text-lg font-semibold text-black">Run Demo</p>
+          <p className="text-gray-500 text-sm mt-1">Test the system</p>
+        </a>
       </div>
     </div>
   );
@@ -113,32 +119,25 @@ export default function DashboardPage() {
 function StatCard({
   title,
   value,
-  icon,
-  color,
+  change,
+  trend,
 }: {
   title: string;
   value: number;
-  icon: string;
-  color: "blue" | "yellow" | "red" | "orange";
+  change: string;
+  trend: "up" | "down";
 }) {
-  const colorClasses = {
-    blue: "bg-blue-50 text-blue-600",
-    yellow: "bg-yellow-50 text-yellow-600",
-    red: "bg-red-50 text-red-600",
-    orange: "bg-orange-50 text-orange-600",
-  };
-
   return (
-    <div className="bg-white rounded-lg shadow p-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm text-gray-500">{title}</p>
-          <p className="text-3xl font-bold text-gray-900">{value}</p>
-        </div>
-        <div className={`p-3 rounded-lg ${colorClasses[color]}`}>
-          <span className="text-2xl">{icon}</span>
-        </div>
-      </div>
+    <div className="p-6 border border-gray-200 rounded-xl">
+      <p className="text-sm text-gray-500">{title}</p>
+      <p className="text-3xl font-bold text-black mt-2">{value}</p>
+      <p
+        className={`text-xs mt-2 ${
+          trend === "up" ? "text-red-600" : "text-green-600"
+        }`}
+      >
+        {change}
+      </p>
     </div>
   );
 }

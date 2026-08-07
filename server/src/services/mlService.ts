@@ -93,3 +93,37 @@ export async function checkGraphMLHealth(): Promise<boolean> {
     return false;
   }
 }
+
+export interface ExplanationResponse {
+  prediction: number;
+  summary: string;
+  explanations: {
+    feature: string;
+    value: number;
+    impact: number;
+    direction: string;
+  }[];
+  top_risk_factors: any[];
+  top_safety_factors: any[];
+}
+
+export async function getMLExplanation(
+  input: MLPredictionRequest
+): Promise<ExplanationResponse> {
+  try {
+    const response = await fetch(`${ML_SERVICE_URL}/explain`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    });
+
+    if (!response.ok) {
+      return { prediction: 0, summary: "Explanation unavailable", explanations: [], top_risk_factors: [], top_safety_factors: [] };
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error("ML explanation error:", error);
+    return { prediction: 0, summary: "Explanation unavailable", explanations: [], top_risk_factors: [], top_safety_factors: [] };
+  }
+}

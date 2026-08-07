@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import Link from "next/link";
 
 interface CaseDetail {
   id: string;
@@ -57,7 +58,7 @@ export default function CaseDetailPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-gray-500">Loading case details...</div>
+        <div className="text-gray-400 text-sm">Loading case details...</div>
       </div>
     );
   }
@@ -70,14 +71,20 @@ export default function CaseDetailPage() {
     );
   }
 
-  const getLevelColor = (level: string) => {
-    const colors = {
-      LOW: "text-green-600",
-      MEDIUM: "text-yellow-600",
-      HIGH: "text-orange-600",
-      CRITICAL: "text-red-600",
+  const getLevelBadge = (level: string) => {
+    const styles: Record<string, string> = {
+      LOW: "bg-gray-100 text-gray-700",
+      MEDIUM: "bg-yellow-100 text-yellow-700",
+      HIGH: "bg-orange-100 text-orange-700",
+      CRITICAL: "bg-red-100 text-red-700",
     };
-    return colors[level as keyof typeof colors] || "text-gray-600";
+    return (
+      <span
+        className={`px-3 py-1 rounded-full text-sm font-medium ${styles[level]}`}
+      >
+        {level}
+      </span>
+    );
   };
 
   const getSignalName = (type: string) => {
@@ -98,30 +105,35 @@ export default function CaseDetailPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">
+          <Link
+            href="/dashboard/cases"
+            className="text-sm text-gray-500 hover:text-black transition-colors"
+          >
+            ← Back to cases
+          </Link>
+          <h1 className="text-2xl font-bold text-black mt-2">
             {caseData.caseNumber}
           </h1>
-          <p className="text-gray-500">
-            Seller: {caseData.seller.name}
-          </p>
+          <p className="text-gray-500 text-sm">Seller: {caseData.seller.name}</p>
         </div>
         <div className="text-right">
-          <p className={`text-4xl font-bold ${getLevelColor(caseData.level)}`}>
-            {caseData.riskScore}
-          </p>
-          <p className="text-sm text-gray-500">Risk Score</p>
+          <div className="flex items-center gap-3">
+            <p className="text-4xl font-bold text-black">{caseData.riskScore}</p>
+            {getLevelBadge(caseData.level)}
+          </div>
+          <p className="text-sm text-gray-500 mt-1">Risk Score</p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Risk Overview */}
+        {/* Main Content */}
         <div className="lg:col-span-2 space-y-6">
           {/* Risk Score Bar */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-lg font-semibold mb-4">Risk Score</h2>
-            <div className="w-full bg-gray-200 rounded-full h-4">
+          <div className="border border-gray-200 rounded-xl p-6">
+            <h2 className="text-sm font-medium text-gray-500 mb-4">Risk Score</h2>
+            <div className="w-full bg-gray-200 rounded-full h-3">
               <div
-                className={`h-4 rounded-full ${
+                className={`h-3 rounded-full ${
                   caseData.level === "CRITICAL"
                     ? "bg-red-600"
                     : caseData.level === "HIGH"
@@ -133,32 +145,30 @@ export default function CaseDetailPage() {
                 style={{ width: `${caseData.riskScore}%` }}
               />
             </div>
-            <div className="flex justify-between mt-2 text-sm text-gray-500">
+            <div className="flex justify-between mt-3 text-xs text-gray-500">
               <span>0</span>
-              <span className={`font-semibold ${getLevelColor(caseData.level)}`}>
-                {caseData.level}
-              </span>
+              <span>50</span>
               <span>100</span>
             </div>
           </div>
 
           {/* Risk Signals */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-lg font-semibold mb-4">Risk Signals</h2>
+          <div className="border border-gray-200 rounded-xl p-6">
+            <h2 className="text-sm font-medium text-gray-500 mb-4">Risk Signals</h2>
             <div className="space-y-4">
               {caseData.riskSignals.map((signal, index) => (
                 <div key={index} className="flex items-center justify-between">
                   <div className="flex-1">
-                    <p className="font-medium">{getSignalName(signal.type)}</p>
-                    <p className="text-sm text-gray-500">
+                    <p className="font-medium text-black">{getSignalName(signal.type)}</p>
+                    <p className="text-xs text-gray-500">
                       {signal.details?.detail}
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="font-semibold">{signal.score}</p>
-                    <div className="w-20 bg-gray-200 rounded-full h-2 mt-1">
+                    <p className="font-medium text-black">{signal.score}</p>
+                    <div className="w-16 bg-gray-200 rounded-full h-1.5 mt-1">
                       <div
-                        className="bg-blue-600 h-2 rounded-full"
+                        className="bg-black h-1.5 rounded-full"
                         style={{ width: `${signal.score}%` }}
                       />
                     </div>
@@ -169,15 +179,15 @@ export default function CaseDetailPage() {
           </div>
 
           {/* Reasons */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-lg font-semibold mb-4">
+          <div className="border border-gray-200 rounded-xl p-6">
+            <h2 className="text-sm font-medium text-gray-500 mb-4">
               Why was this flagged?
             </h2>
             <ul className="space-y-3">
               {caseData.reasons.map((reason, index) => (
                 <li key={index} className="flex items-start gap-3">
-                  <span className="text-yellow-500 mt-1">⚠️</span>
-                  <span className="text-gray-700">{reason}</span>
+                  <span className="w-1.5 h-1.5 bg-black rounded-full mt-2" />
+                  <span className="text-sm text-gray-700">{reason}</span>
                 </li>
               ))}
             </ul>
@@ -187,43 +197,43 @@ export default function CaseDetailPage() {
         {/* Sidebar */}
         <div className="space-y-6">
           {/* Recommended Action */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-lg font-semibold mb-4">Recommended Action</h2>
+          <div className="border border-gray-200 rounded-xl p-6">
+            <h2 className="text-sm font-medium text-gray-500 mb-4">Recommended Action</h2>
             <div className="p-4 bg-gray-50 rounded-lg">
-              <p className="font-semibold text-lg">
+              <p className="font-semibold text-black">
                 {caseData.action.replace(/_/g, " ")}
               </p>
             </div>
             <div className="mt-4 space-y-2">
-              <button className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
+              <button className="w-full px-4 py-2 bg-black text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors">
                 Approve Action
               </button>
-              <button className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+              <button className="w-full px-4 py-2 border border-gray-200 text-black text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors">
                 Send For Review
               </button>
-              <button className="w-full px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300">
+              <button className="w-full px-4 py-2 border border-gray-200 text-gray-500 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors">
                 Dismiss Case
               </button>
             </div>
           </div>
 
           {/* Seller Info */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-lg font-semibold mb-4">Seller Info</h2>
-            <dl className="space-y-3">
+          <div className="border border-gray-200 rounded-xl p-6">
+            <h2 className="text-sm font-medium text-gray-500 mb-4">Seller Info</h2>
+            <dl className="space-y-4">
               <div>
-                <dt className="text-sm text-gray-500">Email</dt>
-                <dd className="text-sm font-medium">{caseData.seller.email}</dd>
+                <dt className="text-xs text-gray-400 uppercase tracking-wider">Email</dt>
+                <dd className="text-sm font-medium text-black mt-1">{caseData.seller.email}</dd>
               </div>
               <div>
-                <dt className="text-sm text-gray-500">Account Age</dt>
-                <dd className="text-sm font-medium">
+                <dt className="text-xs text-gray-400 uppercase tracking-wider">Account Age</dt>
+                <dd className="text-sm font-medium text-black mt-1">
                   {caseData.seller.accountAgeDays} days
                 </dd>
               </div>
               <div>
-                <dt className="text-sm text-gray-500">Refund Rate</dt>
-                <dd className="text-sm font-medium">
+                <dt className="text-xs text-gray-400 uppercase tracking-wider">Refund Rate</dt>
+                <dd className="text-sm font-medium text-black mt-1">
                   {(caseData.seller.refundRate * 100).toFixed(1)}%
                 </dd>
               </div>
@@ -231,14 +241,14 @@ export default function CaseDetailPage() {
           </div>
 
           {/* Audit Log */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-lg font-semibold mb-4">Activity Log</h2>
-            <div className="space-y-3">
+          <div className="border border-gray-200 rounded-xl p-6">
+            <h2 className="text-sm font-medium text-gray-500 mb-4">Activity Log</h2>
+            <div className="space-y-4">
               {caseData.auditLogs.slice(0, 5).map((log, index) => (
                 <div key={index} className="flex items-start gap-3">
-                  <div className="w-2 h-2 bg-blue-500 rounded-full mt-2" />
+                  <div className="w-1.5 h-1.5 bg-black rounded-full mt-2" />
                   <div>
-                    <p className="text-sm">{log.action}</p>
+                    <p className="text-sm text-black">{log.action}</p>
                     <p className="text-xs text-gray-400">
                       {new Date(log.createdAt).toLocaleString()}
                     </p>

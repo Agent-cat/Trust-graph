@@ -33,22 +33,19 @@ export default function AuditPage() {
     fetchLogs();
   }, []);
 
-  const getActionIcon = (action: string) => {
-    if (action.includes("created")) return "🆕";
-    if (action.includes("completed")) return "✅";
-    if (action.includes("notified")) return "📧";
-    if (action.includes("assigned")) return "👤";
-    if (action.includes("appeal")) return "📝";
-    if (action.includes("approved")) return "✅";
-    if (action.includes("rejected")) return "❌";
-    if (action.includes("changed")) return "🔄";
-    return "📋";
+  const getActionDot = (action: string) => {
+    if (action.includes("created")) return "bg-green-500";
+    if (action.includes("completed")) return "bg-green-500";
+    if (action.includes("approved")) return "bg-green-500";
+    if (action.includes("rejected")) return "bg-red-500";
+    if (action.includes("changed")) return "bg-yellow-500";
+    return "bg-black";
   };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-gray-500">Loading audit logs...</div>
+        <div className="text-gray-400 text-sm">Loading audit logs...</div>
       </div>
     );
   }
@@ -56,36 +53,38 @@ export default function AuditPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Audit Logs</h1>
-        <p className="text-gray-500">{logs.length} recent events</p>
+        <h1 className="text-2xl font-bold text-black">Audit Logs</h1>
+        <p className="text-gray-500 text-sm mt-1">
+          {logs.length} recent events
+        </p>
       </div>
 
       {/* Timeline */}
-      <div className="bg-white rounded-lg shadow p-6">
+      <div className="border border-gray-200 rounded-xl p-6">
         <div className="space-y-6">
           {logs.map((log) => (
             <div key={log.id} className="flex gap-4">
-              {/* Icon */}
-              <div className="flex-shrink-0 w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
-                <span>{getActionIcon(log.action)}</span>
+              {/* Dot */}
+              <div className="flex-shrink-0 mt-2">
+                <div className={`w-2 h-2 rounded-full ${getActionDot(log.action)}`} />
               </div>
 
               {/* Content */}
               <div className="flex-1">
                 <div className="flex items-center gap-2">
-                  <p className="font-medium text-gray-900">{log.action}</p>
-                  <span className="text-sm text-gray-400">•</span>
+                  <p className="font-medium text-black text-sm">{log.action}</p>
+                  <span className="text-gray-300">·</span>
                   <a
                     href={`/dashboard/cases`}
-                    className="text-sm text-blue-600 hover:text-blue-800"
+                    className="text-sm text-gray-500 hover:text-black transition-colors"
                   >
                     {log.fraudCase.caseNumber}
                   </a>
                 </div>
 
                 {log.details && Object.keys(log.details).length > 0 && (
-                  <div className="mt-2 p-3 bg-gray-50 rounded-lg">
-                    <pre className="text-xs text-gray-600 whitespace-pre-wrap">
+                  <div className="mt-3 p-4 bg-gray-50 rounded-lg">
+                    <pre className="text-xs text-gray-600 whitespace-pre-wrap font-mono">
                       {JSON.stringify(log.details, null, 2)}
                     </pre>
                   </div>

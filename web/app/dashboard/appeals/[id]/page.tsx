@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
 
 interface AppealDetail {
   id: string;
@@ -87,7 +88,7 @@ export default function AppealReviewPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-gray-500">Loading appeal...</div>
+        <div className="text-gray-400 text-sm">Loading appeal...</div>
       </div>
     );
   }
@@ -103,8 +104,14 @@ export default function AppealReviewPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Review Appeal</h1>
-        <p className="text-gray-500">
+        <Link
+          href="/dashboard/appeals"
+          className="text-sm text-gray-500 hover:text-black transition-colors"
+        >
+          ← Back to appeals
+        </Link>
+        <h1 className="text-2xl font-bold text-black mt-2">Review Appeal</h1>
+        <p className="text-gray-500 text-sm">
           Case: {appeal.fraudCase.caseNumber}
         </p>
       </div>
@@ -113,47 +120,53 @@ export default function AppealReviewPage() {
         {/* Appeal Details */}
         <div className="lg:col-span-2 space-y-6">
           {/* Seller's Explanation */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-lg font-semibold mb-4">Seller's Explanation</h2>
+          <div className="border border-gray-200 rounded-xl p-6">
+            <h2 className="text-sm font-medium text-gray-500 mb-4">
+              Seller's Explanation
+            </h2>
             <p className="text-gray-700 whitespace-pre-wrap">{appeal.reason}</p>
             {appeal.evidenceUrl && (
               <div className="mt-4">
-                <p className="text-sm text-gray-500 mb-2">Evidence:</p>
+                <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">
+                  Evidence
+                </p>
                 <a
                   href={appeal.evidenceUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-blue-600 hover:text-blue-800 underline"
+                  className="text-black font-medium hover:underline"
                 >
-                  View Document
+                  View Document →
                 </a>
               </div>
             )}
           </div>
 
           {/* Original Flag Reasons */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-lg font-semibold mb-4">
+          <div className="border border-gray-200 rounded-xl p-6">
+            <h2 className="text-sm font-medium text-gray-500 mb-4">
               Why was this flagged?
             </h2>
             <ul className="space-y-3">
-              {appeal.fraudCase.reasons.map((reason, index) => (
+              {appeal.fraudCase.reasons?.map((reason, index) => (
                 <li key={index} className="flex items-start gap-3">
-                  <span className="text-yellow-500 mt-1">⚠️</span>
-                  <span className="text-gray-700">{reason}</span>
+                  <span className="w-1.5 h-1.5 bg-black rounded-full mt-2" />
+                  <span className="text-sm text-gray-700">{reason}</span>
                 </li>
               ))}
             </ul>
           </div>
 
           {/* Review Notes */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-lg font-semibold mb-4">Reviewer Notes</h2>
+          <div className="border border-gray-200 rounded-xl p-6">
+            <h2 className="text-sm font-medium text-gray-500 mb-4">
+              Reviewer Notes
+            </h2>
             <textarea
               value={reviewerNote}
               onChange={(e) => setReviewerNote(e.target.value)}
               placeholder="Add your review notes..."
-              className="w-full p-3 border rounded-lg h-32 resize-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full p-4 border border-gray-200 rounded-lg h-32 resize-none focus:outline-none focus:ring-2 focus:ring-black text-sm"
             />
           </div>
         </div>
@@ -161,60 +174,74 @@ export default function AppealReviewPage() {
         {/* Sidebar */}
         <div className="space-y-6">
           {/* Case Info */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-lg font-semibold mb-4">Case Info</h2>
-            <dl className="space-y-3">
+          <div className="border border-gray-200 rounded-xl p-6">
+            <h2 className="text-sm font-medium text-gray-500 mb-4">Case Info</h2>
+            <dl className="space-y-4">
               <div>
-                <dt className="text-sm text-gray-500">Risk Score</dt>
-                <dd className="text-2xl font-bold">
+                <dt className="text-xs text-gray-400 uppercase tracking-wider">
+                  Risk Score
+                </dt>
+                <dd className="text-2xl font-bold text-black mt-1">
                   {appeal.fraudCase.riskScore}
                 </dd>
               </div>
               <div>
-                <dt className="text-sm text-gray-500">Level</dt>
-                <dd className="font-medium">{appeal.fraudCase.level}</dd>
+                <dt className="text-xs text-gray-400 uppercase tracking-wider">
+                  Level
+                </dt>
+                <dd className="font-medium text-black mt-1">
+                  {appeal.fraudCase.level}
+                </dd>
               </div>
               <div>
-                <dt className="text-sm text-gray-500">Current Action</dt>
-                <dd className="font-medium">
-                  {appeal.fraudCase.action.replace(/_/g, " ")}
+                <dt className="text-xs text-gray-400 uppercase tracking-wider">
+                  Current Action
+                </dt>
+                <dd className="font-medium text-black mt-1">
+                  {appeal.fraudCase.action?.replace(/_/g, " ")}
                 </dd>
               </div>
             </dl>
           </div>
 
           {/* Seller Info */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-lg font-semibold mb-4">Seller</h2>
-            <dl className="space-y-3">
+          <div className="border border-gray-200 rounded-xl p-6">
+            <h2 className="text-sm font-medium text-gray-500 mb-4">Seller</h2>
+            <dl className="space-y-4">
               <div>
-                <dt className="text-sm text-gray-500">Name</dt>
-                <dd className="font-medium">
-                  {appeal.fraudCase.seller.name}
+                <dt className="text-xs text-gray-400 uppercase tracking-wider">
+                  Name
+                </dt>
+                <dd className="font-medium text-black mt-1">
+                  {appeal.fraudCase.seller?.name}
                 </dd>
               </div>
               <div>
-                <dt className="text-sm text-gray-500">Email</dt>
-                <dd className="text-sm">{appeal.fraudCase.seller.email}</dd>
+                <dt className="text-xs text-gray-400 uppercase tracking-wider">
+                  Email
+                </dt>
+                <dd className="text-sm text-gray-600 mt-1">
+                  {appeal.fraudCase.seller?.email}
+                </dd>
               </div>
             </dl>
           </div>
 
           {/* Review Actions */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-lg font-semibold mb-4">Decision</h2>
+          <div className="border border-gray-200 rounded-xl p-6">
+            <h2 className="text-sm font-medium text-gray-500 mb-4">Decision</h2>
             <div className="space-y-3">
               <button
                 onClick={() => handleReview("approved")}
                 disabled={submitting}
-                className="w-full px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 font-medium"
+                className="w-full px-4 py-3 bg-black text-white text-sm font-medium rounded-lg hover:bg-gray-800 disabled:opacity-50 transition-colors"
               >
                 {submitting ? "Processing..." : "Approve & Remove Hold"}
               </button>
               <button
                 onClick={() => handleReview("rejected")}
                 disabled={submitting}
-                className="w-full px-4 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 font-medium"
+                className="w-full px-4 py-3 border border-gray-200 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors"
               >
                 {submitting ? "Processing..." : "Reject Appeal"}
               </button>

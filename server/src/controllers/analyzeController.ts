@@ -4,7 +4,10 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { calculateRisk, determineAction } from "../risk/calculateRisk";
 import { getActionWithGuardrail, calculatePrecisionMetrics } from "../risk/guardrail";
 import { runQuery } from "../utils/neo4j";
-import { getMLPrediction, getGraphMLPrediction, checkMLHealth } from "../services/mlService";
+import { getMLPrediction, getGraphMLPrediction, getMLExplanation, checkMLHealth } from "../services/mlService";
+import { checkIPReputation } from "../services/abuseIpDb";
+import { verifyGSTIN, calculateGSTINRisk } from "../services/gstinVerification";
+import { generateLLMExplanation } from "../services/llmExplanation";
 import { z } from "zod";
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! });
@@ -96,6 +99,15 @@ export async function analyzeTransaction(req: Request, res: Response) {
 
     const totalOrders = seller.totalOrders || 1;
 
+    // Get external signals
+    const ipData = await checkIPReputation(transaction.ipAddress || "0.0.0.0");
+    const ipRiskScore = ipData ? ipData.abuseConfidenceScore : 50;
+
+    const gstinData = seller.gstin ? await verifyGSTIN(seller.gstin) : null;
+    const gstinRisk = seller.gstin
+      ? calculateGSTINRisk(seller.gstin, seller.accountAgeDays)
+      : { riskScore: 0, reasons: [] };
+
     const { graphRisk, reasons: graphReasons } = await getGraphRisk(seller.id);
 
     // Get ML predictions
@@ -103,7 +115,7 @@ export async function analyzeTransaction(req: Request, res: Response) {
       amount: transaction.amount,
       refund_rate: seller.refundRate,
       account_age_days: seller.accountAgeDays,
-      ip_risk: 50,
+      ip_risk: ipRiskScore,
       device_linked_accounts: 2,
       order_count_24h: recentOrders,
       disputed_rate: disputedOrders / totalOrders,
@@ -128,16 +140,16 @@ export async function analyzeTransaction(req: Request, res: Response) {
       graphMLPrediction.fraud_probability * 0.4
     );
 
-    // Run risk engine with combined ML prediction
+    // Run risk engine with all signals
     const risk = calculateRisk({
       amount: transaction.amount,
       refundRate: seller.refundRate,
       accountAgeDays: seller.accountAgeDays,
-      ipRisk: 50,
+      ipRisk: ipRiskScore,
       orderCount24h: recentOrders,
       disputedRate: disputedOrders / totalOrders,
-      graphRisk,
-      graphReasons,
+      graphRisk: Math.min(graphRisk + gstinRisk.riskScore, 100),
+      graphReasons: [...graphReasons, ...gstinRisk.reasons],
       mlFraudProbability: combinedMLProbability,
     });
 
@@ -207,6 +219,28 @@ export async function analyzeTransaction(req: Request, res: Response) {
       },
     });
 
+    // Get SHAP explanation
+    const explanation = await getMLExplanation({
+      amount: transaction.amount,
+      refund_rate: seller.refundRate,
+      account_age_days: seller.accountAgeDays,
+      ip_risk: ipRiskScore,
+      device_linked_accounts: 2,
+      order_count_24h: recentOrders,
+      disputed_rate: disputedOrders / totalOrders,
+      graph_risk: graphRisk,
+    });
+
+    // Generate LLM explanation
+    const llmExplanation = await generateLLMExplanation({
+      riskScore: risk.score,
+      level: risk.level,
+      reasons: risk.reasons,
+      signals: risk.signals,
+      sellerName: seller.name,
+      transactionAmount: transaction.amount,
+    });
+
     return res.json({
       success: true,
       data: {
@@ -231,11 +265,34 @@ export async function analyzeTransaction(req: Request, res: Response) {
           combined: combinedMLProbability,
           isFraud: combinedMLProbability > 0.5,
         },
+        external: {
+          ip: ipData ? {
+            score: ipData.abuseConfidenceScore,
+            country: ipData.countryCode,
+            isp: ipData.isp,
+            reports: ipData.totalReports,
+          } : null,
+          gstin: gstinData ? {
+            status: gstinData.status,
+            state: gstinData.state,
+            businessType: gstinData.businessType,
+          } : null,
+        },
         guardrail: {
           requiresHumanReview,
           reason: guardrailReason,
           precision: precisionMetrics.precision,
           sampleSize: precisionMetrics.sampleSize,
+        },
+        explanation: {
+          summary: explanation.summary,
+          topRiskFactors: explanation.top_risk_factors,
+          topSafetyFactors: explanation.top_safety_factors,
+        },
+        llm: {
+          summary: llmExplanation.summary,
+          detailedAnalysis: llmExplanation.detailedAnalysis,
+          recommendedAction: llmExplanation.recommendedAction,
         },
         action,
         reasons: risk.reasons,

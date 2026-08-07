@@ -26,9 +26,10 @@ export default function SellersPage() {
   useEffect(() => {
     async function fetchSellers() {
       try {
-        const url = filter === "flagged"
-          ? "http://localhost:4000/api/sellers?flagged=true"
-          : "http://localhost:4000/api/sellers";
+        const url =
+          filter === "flagged"
+            ? "http://localhost:4000/api/sellers?flagged=true"
+            : "http://localhost:4000/api/sellers";
 
         const res = await fetch(url);
         const data = await res.json();
@@ -46,7 +47,7 @@ export default function SellersPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-gray-500">Loading sellers...</div>
+        <div className="text-gray-400 text-sm">Loading sellers...</div>
       </div>
     );
   }
@@ -55,14 +56,16 @@ export default function SellersPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Sellers</h1>
-          <p className="text-gray-500">{sellers.length} total sellers</p>
+          <h1 className="text-2xl font-bold text-black">Sellers</h1>
+          <p className="text-gray-500 text-sm mt-1">
+            {sellers.length} total sellers
+          </p>
         </div>
 
         <select
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
-          className="px-4 py-2 border rounded-lg text-sm"
+          className="px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-black"
         >
           <option value="">All Sellers</option>
           <option value="flagged">Flagged Only</option>
@@ -70,66 +73,69 @@ export default function SellersPage() {
       </div>
 
       {/* Sellers Table */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
+      <div className="border border-gray-200 rounded-xl overflow-hidden">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Seller
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Account Age
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Refund Rate
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Orders
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Revenue
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                Fraud Cases
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Cases
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Status
               </th>
             </tr>
           </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
+          <tbody className="bg-white divide-y divide-gray-100">
             {sellers.map((seller) => (
-              <tr key={seller.id} className="hover:bg-gray-50">
+              <tr
+                key={seller.id}
+                className="hover:bg-gray-50 transition-colors"
+              >
                 <td className="px-6 py-4">
                   <Link
                     href={`/dashboard/sellers/${seller.id}`}
-                    className="text-blue-600 hover:text-blue-800"
+                    className="text-black font-medium hover:underline"
                   >
                     <div>
-                      <p className="font-medium text-gray-900">{seller.name}</p>
-                      <p className="text-sm text-gray-500">{seller.email}</p>
+                      <p className="font-medium">{seller.name}</p>
+                      <p className="text-xs text-gray-500">{seller.email}</p>
                     </div>
                   </Link>
                 </td>
                 <td className="px-6 py-4 text-sm text-gray-600">
-                  {seller.accountAgeDays} days
+                  {seller.accountAgeDays}d
                 </td>
                 <td className="px-6 py-4">
                   <div className="flex items-center gap-2">
-                    <div className="w-16 bg-gray-200 rounded-full h-2">
+                    <div className="w-16 bg-gray-200 rounded-full h-1.5">
                       <div
-                        className={`h-2 rounded-full ${
+                        className={`h-1.5 rounded-full ${
                           seller.refundRate > 0.5
                             ? "bg-red-500"
                             : seller.refundRate > 0.3
                               ? "bg-orange-500"
-                              : "bg-green-500"
+                              : "bg-black"
                         }`}
                         style={{ width: `${seller.refundRate * 100}%` }}
                       />
                     </div>
                     <span className="text-sm text-gray-600">
-                      {(seller.refundRate * 100).toFixed(1)}%
+                      {(seller.refundRate * 100).toFixed(0)}%
                     </span>
                   </div>
                 </td>
@@ -143,8 +149,8 @@ export default function SellersPage() {
                   <span
                     className={`px-2 py-1 rounded-full text-xs font-medium ${
                       seller._count.fraudCases > 0
-                        ? "bg-red-100 text-red-800"
-                        : "bg-green-100 text-green-800"
+                        ? "bg-red-100 text-red-700"
+                        : "bg-gray-100 text-gray-500"
                     }`}
                   >
                     {seller._count.fraudCases}
@@ -152,11 +158,11 @@ export default function SellersPage() {
                 </td>
                 <td className="px-6 py-4">
                   {seller.isFlagged ? (
-                    <span className="px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                    <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-black text-white">
                       Flagged
                     </span>
                   ) : (
-                    <span className="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                    <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
                       Active
                     </span>
                   )}
