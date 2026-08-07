@@ -13,7 +13,8 @@
   "scripts": {
     "dev": "bun --watch src/index.ts",
     "start": "bun src/index.ts",
-    "db:seed": "bun prisma/seed.ts"
+    "db:seed": "bun prisma/seed.ts",
+    "graph:seed": "bun prisma/seed-graph.ts"
   },
   "peerDependencies": {
     "typescript": "^5"
@@ -26,6 +27,7 @@
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
+    "neo4j-driver": "^6.2.0",
     "pg": "^8.22.0",
     "zod": "^4.4.3"
   }
