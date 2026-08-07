@@ -5,6 +5,7 @@ import riskRoutes from "./routes/risk";
 import casesRoutes from "./routes/cases";
 import sellersRoutes from "./routes/sellers";
 import transactionsRoutes from "./routes/transactions";
+import appealsRoutes from "./routes/appeals";
 
 const app = express();
 
@@ -25,6 +26,7 @@ app.use("/api/risk", riskRoutes);
 app.use("/api/cases", casesRoutes);
 app.use("/api/sellers", sellersRoutes);
 app.use("/api/transactions", transactionsRoutes);
+app.use("/api/appeals", appealsRoutes);
 
 app.listen(PORT, () => {
   console.log(`🚀 Trust Graph API running on http://localhost:${PORT}`);
