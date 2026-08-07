@@ -3,7 +3,7 @@ import { PrismaClient } from "../generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { calculateRisk, determineAction } from "../risk/calculateRisk";
 import { runQuery } from "../utils/neo4j";
-import { getMLPrediction, checkMLHealth } from "../services/mlService";
+import { getMLPrediction, getGraphMLPrediction, checkMLHealth } from "../services/mlService";
 import { z } from "zod";
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! });
@@ -97,7 +97,7 @@ export async function analyzeTransaction(req: Request, res: Response) {
 
     const { graphRisk, reasons: graphReasons } = await getGraphRisk(seller.id);
 
-    // Get ML prediction
+    // Get ML predictions
     const mlPrediction = await getMLPrediction({
       amount: transaction.amount,
       refund_rate: seller.refundRate,
@@ -109,7 +109,25 @@ export async function analyzeTransaction(req: Request, res: Response) {
       graph_risk: graphRisk,
     });
 
-    // Run risk engine with ML prediction
+    const graphMLPrediction = await getGraphMLPrediction({
+      degree: 3,
+      clustering_coeff: 0.3,
+      pagerank: 0.001,
+      neighbor_fraud_rate: graphRisk / 100,
+      shared_device_count: 2,
+      shared_ip_count: 1,
+      total_transactions: recentOrders,
+      avg_amount: transaction.amount,
+      refund_rate: seller.refundRate,
+    });
+
+    // Combine ML predictions
+    const combinedMLProbability = (
+      mlPrediction.fraud_probability * 0.6 +
+      graphMLPrediction.fraud_probability * 0.4
+    );
+
+    // Run risk engine with combined ML prediction
     const risk = calculateRisk({
       amount: transaction.amount,
       refundRate: seller.refundRate,
@@ -119,7 +137,7 @@ export async function analyzeTransaction(req: Request, res: Response) {
       disputedRate: disputedOrders / totalOrders,
       graphRisk,
       graphReasons,
-      mlFraudProbability: mlPrediction.fraud_probability,
+      mlFraudProbability: combinedMLProbability,
     });
 
     const action = determineAction(risk.level);
@@ -186,9 +204,10 @@ export async function analyzeTransaction(req: Request, res: Response) {
           signals: risk.signals,
         },
         ml: {
-          prediction: mlPrediction.fraud_probability,
-          isFraud: mlPrediction.is_fraud,
-          confidence: mlPrediction.confidence,
+          transaction: mlPrediction.fraud_probability,
+          graph: graphMLPrediction.fraud_probability,
+          combined: combinedMLProbability,
+          isFraud: combinedMLProbability > 0.5,
         },
         action,
         reasons: risk.reasons,
