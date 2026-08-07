@@ -6,6 +6,8 @@ export interface RiskInput {
   deviceLinkedAccounts?: number;
   orderCount24h?: number;
   disputedRate?: number;
+  graphRisk?: number;
+  graphReasons?: string[];
 }
 
 export interface RiskResult {
@@ -150,15 +152,29 @@ export function calculateRisk(input: RiskInput): RiskResult {
     detail: `Dispute rate: ${(disputedRate * 100).toFixed(1)}%`,
   });
 
+  // Graph risk (from Neo4j)
+  let graphScore = input.graphRisk ?? 0;
+  if (input.graphReasons && input.graphReasons.length > 0) {
+    for (const reason of input.graphReasons) {
+      reasons.push(reason);
+    }
+  }
+  signals.push({
+    type: "graph_risk",
+    score: Math.min(graphScore, 100),
+    detail: `Graph risk: ${graphScore}/100`,
+  });
+
   // Calculate weighted total
   const weights = {
-    transaction: 0.2,
-    refund: 0.2,
-    account: 0.15,
-    ip: 0.15,
-    device: 0.15,
-    velocity: 0.1,
+    transaction: 0.15,
+    refund: 0.15,
+    account: 0.10,
+    ip: 0.10,
+    device: 0.10,
+    velocity: 0.10,
     dispute: 0.05,
+    graph: 0.25,
   };
 
   score =
@@ -168,7 +184,8 @@ export function calculateRisk(input: RiskInput): RiskResult {
     ipScore * weights.ip +
     deviceScore * weights.device +
     velocityScore * weights.velocity +
-    disputeScore * weights.dispute;
+    disputeScore * weights.dispute +
+    graphScore * weights.graph;
 
   score = Math.min(Math.round(score), 100);
 
