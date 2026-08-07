@@ -1,0 +1,33 @@
+# dependencies
+node_modules
+
+# build
+dist
+build
+out
+
+# environment
+.env
+.env.local
+.env.*.local
+
+# logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# coverage
+coverage/
+*.lcov
+
+# docker
+docker-compose.override.yml
