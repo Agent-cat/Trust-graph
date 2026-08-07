@@ -1,0 +1,113 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Seller {
+  id            String        @id @default(cuid())
+  name          String
+  email         String        @unique
+  phone         String?
+  gstin         String?
+  accountAgeDays Int          @default(0)
+  refundRate    Float         @default(0)
+  totalOrders   Int           @default(0)
+  totalRevenue  Float         @default(0)
+  isFlagged     Boolean       @default(false)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  orders      Order[]
+  fraudCases  FraudCase[]
+}
+
+model Order {
+  id            String    @id @default(cuid())
+  sellerId      String
+  customerId    String
+  amount        Float
+  status        String    @default("completed") // completed, refunded, disputed
+  deviceId      String?
+  ipAddress     String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  seller        Seller    @relation(fields: [sellerId], references: [id])
+  transactions  Transaction[]
+}
+
+model Transaction {
+  id            String    @id @default(cuid())
+  orderId       String
+  amount        Float
+  type          String    @default("payment") // payment, refund, payout
+  status        String    @default("completed")
+  deviceId      String?
+  ipAddress     String?
+  refundRate    Float?
+  accountAgeDays Int?
+  createdAt     DateTime  @default(now())
+
+  order         Order     @relation(fields: [orderId], references: [id])
+  riskSignals   RiskSignal[]
+}
+
+model FraudCase {
+  id            String    @id @default(cuid())
+  sellerId      String
+  caseNumber    String    @unique
+  riskScore     Float
+  level         String    // LOW, MEDIUM, HIGH, CRITICAL
+  action        String    // ALLOW, STEP_UP_VERIFICATION, HUMAN_REVIEW, PAYOUT_HOLD
+  reasons       String[]
+  status        String    @default("open") // open, under_review, resolved, dismissed
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  seller        Seller    @relation(fields: [sellerId], references: [id])
+  riskSignals   RiskSignal[]
+  appeals       Appeal[]
+  auditLogs     AuditLog[]
+}
+
+model RiskSignal {
+  id            String    @id @default(cuid())
+  fraudCaseId   String
+  transactionId String?
+  type          String    // transaction_risk, graph_risk, ip_risk, identity_risk
+  score         Float
+  details       Json?
+  createdAt     DateTime  @default(now())
+
+  fraudCase     FraudCase @relation(fields: [fraudCaseId], references: [id])
+  transaction   Transaction? @relation(fields: [transactionId], references: [id])
+}
+
+model Appeal {
+  id            String    @id @default(cuid())
+  fraudCaseId   String
+  sellerId      String
+  reason        String
+  evidenceUrl   String?
+  status        String    @default("pending") // pending, approved, rejected
+  reviewerNote  String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  fraudCase     FraudCase @relation(fields: [fraudCaseId], references: [id])
+}
+
+model AuditLog {
+  id            String    @id @default(cuid())
+  fraudCaseId   String
+  action        String
+  details       Json?
+  performedBy   String    @default("system")
+  createdAt     DateTime  @default(now())
+
+  fraudCase     FraudCase @relation(fields: [fraudCaseId], references: [id])
+}
