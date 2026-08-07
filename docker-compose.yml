@@ -12,5 +12,21 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
 
+  neo4j:
+    image: neo4j:5
+    container_name: trustgraph-neo4j
+    restart: unless-stopped
+    environment:
+      NEO4J_AUTH: neo4j/trustgraph
+      NEO4J_PLUGINS: '["graph-data-science"]'
+    ports:
+      - "7474:7474"   # Browser UI
+      - "7687:7687"   # Bolt protocol
+    volumes:
+      - neo4jdata:/data
+      - neo4jlogs:/logs
+
 volumes:
   pgdata:
+  neo4jdata:
+  neo4jlogs:
