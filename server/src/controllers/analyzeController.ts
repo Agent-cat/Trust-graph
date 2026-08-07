@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { PrismaClient } from "../generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { calculateRisk, determineAction } from "../risk/calculateRisk";
+import { getActionWithGuardrail, calculatePrecisionMetrics } from "../risk/guardrail";
 import { runQuery } from "../utils/neo4j";
 import { getMLPrediction, getGraphMLPrediction, checkMLHealth } from "../services/mlService";
 import { z } from "zod";
@@ -140,7 +141,23 @@ export async function analyzeTransaction(req: Request, res: Response) {
       mlFraudProbability: combinedMLProbability,
     });
 
-    const action = determineAction(risk.level);
+    // Get historical predictions for precision calculation
+    const recentCases = await prisma.fraudCase.findMany({
+      take: 200,
+      orderBy: { createdAt: "desc" },
+      select: { level: true, status: true },
+    });
+
+    const predictions = recentCases.map((c) => ({
+      predicted: c.level === "HIGH" || c.level === "CRITICAL",
+      actual: c.status === "resolved",
+    }));
+
+    const precisionMetrics = calculatePrecisionMetrics(predictions);
+
+    // Apply guardrail
+    const { action, requiresHumanReview, reason: guardrailReason } =
+      getActionWithGuardrail(risk.level, precisionMetrics);
 
     const caseNumber = `CASE-${Date.now().toString(36).toUpperCase()}`;
     const fraudCase = await prisma.fraudCase.create({
@@ -179,7 +196,12 @@ export async function analyzeTransaction(req: Request, res: Response) {
           level: risk.level,
           action,
           graphRisk,
-          mlPrediction: mlPrediction.fraud_probability,
+          mlPrediction: combinedMLProbability,
+          guardrail: {
+            requiresHumanReview,
+            reason: guardrailReason,
+            precision: precisionMetrics.precision,
+          },
         },
         performedBy: "system",
       },
@@ -208,6 +230,12 @@ export async function analyzeTransaction(req: Request, res: Response) {
           graph: graphMLPrediction.fraud_probability,
           combined: combinedMLProbability,
           isFraud: combinedMLProbability > 0.5,
+        },
+        guardrail: {
+          requiresHumanReview,
+          reason: guardrailReason,
+          precision: precisionMetrics.precision,
+          sampleSize: precisionMetrics.sampleSize,
         },
         action,
         reasons: risk.reasons,
