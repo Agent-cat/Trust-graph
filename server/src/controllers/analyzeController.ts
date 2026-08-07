@@ -3,6 +3,7 @@ import { PrismaClient } from "../generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { calculateRisk, determineAction } from "../risk/calculateRisk";
 import { runQuery } from "../utils/neo4j";
+import { getMLPrediction, checkMLHealth } from "../services/mlService";
 import { z } from "zod";
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! });
@@ -14,7 +15,6 @@ const AnalyzeRequestSchema = z.object({
 
 async function getGraphRisk(sellerId: string) {
   try {
-    // Find shared devices
     const sharedDevices = await runQuery(`
       MATCH (s:Seller {id: $sellerId})-[:USES_DEVICE]->(d:Device)<-[:USES_DEVICE]-(c:Customer)
       WITH d, count(c) as customerCount
@@ -23,7 +23,6 @@ async function getGraphRisk(sellerId: string) {
       ORDER BY customerCount DESC
     `, { sellerId });
 
-    // Find shared IPs
     const sharedIps = await runQuery(`
       MATCH (s:Seller {id: $sellerId})-[:USES_IP]->(ip:IP)<-[:USES_IP]-(c:Customer)
       WITH ip, count(c) as customerCount
@@ -58,7 +57,6 @@ export async function analyzeTransaction(req: Request, res: Response) {
   try {
     const { transactionId } = AnalyzeRequestSchema.parse(req.body);
 
-    // Load transaction with all related data
     const transaction = await prisma.transaction.findUnique({
       where: { id: transactionId },
       include: {
@@ -79,7 +77,6 @@ export async function analyzeTransaction(req: Request, res: Response) {
 
     const seller = transaction.order.seller;
 
-    // Count recent orders for velocity check
     const recentOrders = await prisma.order.count({
       where: {
         sellerId: seller.id,
@@ -89,7 +86,6 @@ export async function analyzeTransaction(req: Request, res: Response) {
       },
     });
 
-    // Count disputed orders
     const disputedOrders = await prisma.order.count({
       where: {
         sellerId: seller.id,
@@ -99,24 +95,35 @@ export async function analyzeTransaction(req: Request, res: Response) {
 
     const totalOrders = seller.totalOrders || 1;
 
-    // Get graph risk from Neo4j
     const { graphRisk, reasons: graphReasons } = await getGraphRisk(seller.id);
 
-    // Run risk engine with graph risk
+    // Get ML prediction
+    const mlPrediction = await getMLPrediction({
+      amount: transaction.amount,
+      refund_rate: seller.refundRate,
+      account_age_days: seller.accountAgeDays,
+      ip_risk: 50,
+      device_linked_accounts: 2,
+      order_count_24h: recentOrders,
+      disputed_rate: disputedOrders / totalOrders,
+      graph_risk: graphRisk,
+    });
+
+    // Run risk engine with ML prediction
     const risk = calculateRisk({
       amount: transaction.amount,
       refundRate: seller.refundRate,
       accountAgeDays: seller.accountAgeDays,
-      ipRisk: 50, // Placeholder - would come from external API
+      ipRisk: 50,
       orderCount24h: recentOrders,
       disputedRate: disputedOrders / totalOrders,
       graphRisk,
       graphReasons,
+      mlFraudProbability: mlPrediction.fraud_probability,
     });
 
     const action = determineAction(risk.level);
 
-    // Create fraud case
     const caseNumber = `CASE-${Date.now().toString(36).toUpperCase()}`;
     const fraudCase = await prisma.fraudCase.create({
       data: {
@@ -130,7 +137,6 @@ export async function analyzeTransaction(req: Request, res: Response) {
       },
     });
 
-    // Create risk signals
     await prisma.riskSignal.createMany({
       data: risk.signals.map((signal) => ({
         fraudCaseId: fraudCase.id,
@@ -144,7 +150,6 @@ export async function analyzeTransaction(req: Request, res: Response) {
       })),
     });
 
-    // Create audit log
     await prisma.auditLog.create({
       data: {
         fraudCaseId: fraudCase.id,
@@ -156,6 +161,7 @@ export async function analyzeTransaction(req: Request, res: Response) {
           level: risk.level,
           action,
           graphRisk,
+          mlPrediction: mlPrediction.fraud_probability,
         },
         performedBy: "system",
       },
@@ -178,6 +184,11 @@ export async function analyzeTransaction(req: Request, res: Response) {
           score: risk.score,
           level: risk.level,
           signals: risk.signals,
+        },
+        ml: {
+          prediction: mlPrediction.fraud_probability,
+          isFraud: mlPrediction.is_fraud,
+          confidence: mlPrediction.confidence,
         },
         action,
         reasons: risk.reasons,

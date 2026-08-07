@@ -8,6 +8,7 @@ export interface RiskInput {
   disputedRate?: number;
   graphRisk?: number;
   graphReasons?: string[];
+  mlFraudProbability?: number;
 }
 
 export interface RiskResult {
@@ -165,16 +166,28 @@ export function calculateRisk(input: RiskInput): RiskResult {
     detail: `Graph risk: ${graphScore}/100`,
   });
 
+  // ML prediction (from XGBoost)
+  let mlScore = Math.round((input.mlFraudProbability ?? 0) * 100);
+  if (mlScore > 70) {
+    reasons.push("ML model predicts high fraud probability");
+  }
+  signals.push({
+    type: "ml_risk",
+    score: mlScore,
+    detail: `ML fraud probability: ${(input.mlFraudProbability ?? 0 * 100).toFixed(1)}%`,
+  });
+
   // Calculate weighted total
   const weights = {
-    transaction: 0.15,
-    refund: 0.15,
-    account: 0.10,
-    ip: 0.10,
-    device: 0.10,
-    velocity: 0.10,
-    dispute: 0.05,
-    graph: 0.25,
+    transaction: 0.12,
+    refund: 0.12,
+    account: 0.08,
+    ip: 0.08,
+    device: 0.08,
+    velocity: 0.08,
+    dispute: 0.04,
+    graph: 0.20,
+    ml: 0.20,
   };
 
   score =
@@ -185,7 +198,8 @@ export function calculateRisk(input: RiskInput): RiskResult {
     deviceScore * weights.device +
     velocityScore * weights.velocity +
     disputeScore * weights.dispute +
-    graphScore * weights.graph;
+    graphScore * weights.graph +
+    mlScore * weights.ml;
 
   score = Math.min(Math.round(score), 100);
 
