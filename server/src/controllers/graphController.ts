@@ -155,3 +155,104 @@ export async function getSellerGraphRisk(req: Request, res: Response) {
     return res.status(500).json({ success: false, error: "Internal server error" });
   }
 }
+
+export async function getGraphVerdicts(req: Request, res: Response) {
+  try {
+    // Sellers: risky flag + shared device/IP counts
+    const sellers = await runQuery(`
+      MATCH (s:Seller)
+      OPTIONAL MATCH (s)-[:USES_DEVICE]->(d:Device)<-[:USES_DEVICE]-(c:Customer)
+      WITH s, d, count(c) as sharedCustomers
+      WITH s, collect(d.id) as sharedDevices, sum(CASE WHEN sharedCustomers > 0 THEN 1 ELSE 0 END) as sharedDeviceCount
+      OPTIONAL MATCH (s)-[:USES_IP]->(ip:IP)<-[:USES_IP]-(c2:Customer)
+      WITH s, sharedDevices, sharedDeviceCount, count(DISTINCT ip) as sharedIpCount
+      RETURN s.id as id, s.name as name, coalesce(s.risky, false) as risky,
+             sharedDeviceCount, sharedIpCount, sharedDevices
+    `);
+
+    // Customers: how many shared devices/IPs, which risky sellers they connect to
+    const customers = await runQuery(`
+      MATCH (c:Customer)
+      OPTIONAL MATCH (c)-[:USES_DEVICE]->(d:Device)
+      WITH c, collect(DISTINCT d.id) as deviceIds
+      OPTIONAL MATCH (c)-[:PLACED]->(s:Seller)
+      WITH c, deviceIds, collect(s) as sellers
+      OPTIONAL MATCH (c)-[:USES_IP]->(ip:IP)
+      RETURN c.id as id, c.name as name, deviceIds,
+             [x IN sellers | { id: x.id, risky: coalesce(x.risky, false) }] as sellers,
+             collect(DISTINCT ip.address) as ipAddresses
+    `);
+
+    const sellerVerdicts = sellers.map((s: any) => {
+      const reasons: string[] = [];
+      let score = 0;
+
+      if (s.risky) {
+        score += 50;
+        reasons.push("Seller is flagged as risky");
+      }
+      if (Number(s.sharedDeviceCount) > 0) {
+        score += 25;
+        reasons.push(`Device shared with customers (${s.sharedDeviceCount})`);
+      }
+      if (Number(s.sharedIpCount) > 0) {
+        score += 15;
+        reasons.push(`IP shared with customers (${s.sharedIpCount})`);
+      }
+
+      const verdict =
+        score >= 50 ? "HIGH_RISK" : score >= 25 ? "RISKY" : score >= 10 ? "SUSPICIOUS" : "SAFE";
+
+      return {
+        id: s.id,
+        name: s.name,
+        label: "Seller",
+        score: Math.min(score, 100),
+        verdict,
+        reasons,
+      };
+    });
+
+    const customerVerdicts = customers.map((c: any) => {
+      const reasons: string[] = [];
+      let score = 0;
+
+      const riskySellers = (c.sellers || []).filter((x: any) => x.risky);
+      if (riskySellers.length > 0) {
+        score += 40;
+        reasons.push(`Placed orders with risky seller${riskySellers.length > 1 ? "s" : ""} (${riskySellers.map((x: any) => x.id).join(", ")})`);
+      }
+      if ((c.deviceIds || []).length > 1) {
+        score += 20;
+        reasons.push("Uses multiple devices");
+      }
+      if ((c.ipAddresses || []).length > 1) {
+        score += 15;
+        reasons.push("Uses multiple IP addresses");
+      }
+
+      const verdict =
+        score >= 40 ? "HIGH_RISK" : score >= 25 ? "RISKY" : score >= 10 ? "SUSPICIOUS" : "SAFE";
+
+      return {
+        id: c.id,
+        name: c.name,
+        label: "Customer",
+        score: Math.min(score, 100),
+        verdict,
+        reasons,
+      };
+    });
+
+    return res.json({
+      success: true,
+      data: {
+        sellers: sellerVerdicts,
+        customers: customerVerdicts,
+      },
+    });
+  } catch (error) {
+    console.error("Graph verdicts error:", error);
+    return res.status(500).json({ success: false, error: "Internal server error" });
+  }
+}
