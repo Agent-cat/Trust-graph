@@ -22,16 +22,14 @@ export default function SignUpPage() {
         name,
         email,
         password,
+        role,
         callbackURL: "/dashboard",
-      });
+      } as any);
 
       if (error) {
         setError(error.message || "Failed to sign up");
         return;
       }
-
-      // Note: Role assignment happens via database hook or after sign up
-      // For now, we'll need to update the user's role after creation
     } catch (err) {
       setError("An unexpected error occurred");
     } finally {

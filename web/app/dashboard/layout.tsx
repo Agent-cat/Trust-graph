@@ -6,6 +6,7 @@ import { authClient } from "@/lib/auth-client";
 
 const adminNavigation = [
   { name: "Dashboard", href: "/dashboard" },
+  { name: "Fraud Graph", href: "/dashboard/graph" },
   { name: "Users", href: "/dashboard/users" },
   { name: "Sellers", href: "/dashboard/sellers" },
   { name: "Orders", href: "/dashboard/orders" },

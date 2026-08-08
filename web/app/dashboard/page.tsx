@@ -8,6 +8,7 @@ interface DashboardStats {
   totalOrders?: number;
   totalRevenue?: number;
   totalUsers?: number;
+  cartItems?: number;
 }
 
 export default function DashboardPage() {
@@ -20,47 +21,10 @@ export default function DashboardPage() {
   useEffect(() => {
     async function fetchStats() {
       try {
-        // Fetch stats based on role
-        if (role === "admin") {
-          const [usersRes, ordersRes, productsRes] = await Promise.all([
-            fetch("http://localhost:4000/api/users/count"),
-            fetch("http://localhost:4000/api/orders/count"),
-            fetch("http://localhost:4000/api/products/count"),
-          ]);
-
-          const [usersData, ordersData, productsData] = await Promise.all([
-            usersRes.json(),
-            ordersRes.json(),
-            productsRes.json(),
-          ]);
-
-          setStats({
-            totalUsers: usersData.data || 0,
-            totalOrders: ordersData.data || 0,
-            totalProducts: productsData.data || 0,
-          });
-        } else if (role === "seller") {
-          const [productsRes, ordersRes] = await Promise.all([
-            fetch("http://localhost:4000/api/products/mine"),
-            fetch("http://localhost:4000/api/orders/seller"),
-          ]);
-
-          const [productsData, ordersData] = await Promise.all([
-            productsRes.json(),
-            ordersRes.json(),
-          ]);
-
-          setStats({
-            totalProducts: productsData.data?.length || 0,
-            totalOrders: ordersData.data?.length || 0,
-          });
-        } else {
-          const ordersRes = await fetch("http://localhost:4000/api/orders/mine");
-          const ordersData = await ordersRes.json();
-
-          setStats({
-            totalOrders: ordersData.data?.length || 0,
-          });
+        const res = await fetch("/api/stats");
+        const data = await res.json();
+        if (data.success) {
+          setStats(data.data);
         }
       } catch (error) {
         console.error("Failed to fetch stats:", error);
@@ -102,7 +66,7 @@ export default function DashboardPage() {
             <StatCard title="Total Users" value={stats.totalUsers || 0} />
             <StatCard title="Total Orders" value={stats.totalOrders || 0} />
             <StatCard title="Total Products" value={stats.totalProducts || 0} />
-            <StatCard title="Revenue" value={0} prefix="₹" />
+            <StatCard title="Revenue" value={stats.totalRevenue || 0} prefix="₹" />
           </>
         )}
 
@@ -110,7 +74,7 @@ export default function DashboardPage() {
           <>
             <StatCard title="My Products" value={stats.totalProducts || 0} />
             <StatCard title="Orders" value={stats.totalOrders || 0} />
-            <StatCard title="Revenue" value={0} prefix="₹" />
+            <StatCard title="Revenue" value={stats.totalRevenue || 0} prefix="₹" />
             <StatCard title="Rating" value={0} suffix="/5" />
           </>
         )}
@@ -118,7 +82,7 @@ export default function DashboardPage() {
         {role === "customer" && (
           <>
             <StatCard title="My Orders" value={stats.totalOrders || 0} />
-            <StatCard title="Cart Items" value={0} />
+            <StatCard title="Cart Items" value={stats.cartItems || 0} />
             <StatCard title="Wishlist" value={0} />
             <StatCard title="Points" value={0} />
           </>
