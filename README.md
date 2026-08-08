@@ -328,6 +328,9 @@ Automatic recommendations are surfaced when any metric falls below its threshold
 
 ---
 
+![alt text](image.png)
+
+
 ## System Architecture
 
 ```
