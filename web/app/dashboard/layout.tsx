@@ -9,6 +9,7 @@ const adminNavigation = [
   { name: "Fraud Graph", href: "/dashboard/graph" },
   { name: "Users", href: "/dashboard/users" },
   { name: "Sellers", href: "/dashboard/sellers" },
+  { name: "Cases", href: "/dashboard/cases" },
   { name: "Orders", href: "/dashboard/orders" },
   { name: "Products", href: "/dashboard/products" },
   { name: "Audit Logs", href: "/dashboard/audit" },

@@ -1,6 +1,55 @@
 import { Request, Response } from "express";
 import { runQuery, runWrite } from "../utils/neo4j";
 
+export async function getEntireGraph(req: Request, res: Response) {
+  try {
+    const nodesResult = await runQuery(`
+      MATCH (n)
+      RETURN DISTINCT n
+    `);
+
+    const relsResult = await runQuery(`
+      MATCH (a)-[r]->(b)
+      RETURN DISTINCT r, a, b
+    `);
+
+    const nodesMap = new Map();
+for (const result of nodesResult) {
+      const node = result.n;
+      const nodeId = node.id ?? node.elementId;
+      nodesMap.set(nodeId, {
+        id: nodeId,
+        labels: node.labels,
+        properties: node.properties,
+      });
+    }
+
+    const relationships = [];
+    for (const result of relsResult) {
+      const rel = result.r;
+      const start = result.a;
+      const end = result.b;
+      relationships.push({
+        id: rel.elementId,
+        type: rel.type,
+        startNode: start.id ?? start.elementId,
+        endNode: end.id ?? end.elementId,
+      });
+    }
+
+    return res.json({
+      success: true,
+      data: {
+        nodes: Array.from(nodesMap.values()),
+        relationships,
+      },
+    });
+  } catch (error) {
+    console.error("Entire graph error:", error);
+    return res.status(500).json({ success: false, error: "Internal server error" });
+  }
+}
+
 export async function getGraphNeighbors(req: Request, res: Response) {
   try {
     const { nodeId, depth = 2 } = req.query;

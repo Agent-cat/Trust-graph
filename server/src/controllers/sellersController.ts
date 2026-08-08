@@ -21,6 +21,19 @@ export async function listSellers(req: Request, res: Response) {
           _count: {
             select: { orders: true, fraudCases: true },
           },
+          fraudCases: {
+            select: {
+              id: true,
+              caseNumber: true,
+              riskScore: true,
+              level: true,
+              status: true,
+              action: true,
+              reasons: true,
+            },
+            orderBy: { createdAt: "desc" },
+            take: 5,
+          },
         },
         orderBy: { createdAt: "desc" },
         skip,
@@ -70,6 +83,27 @@ export async function getSeller(req: Request, res: Response) {
     return res.json({ success: true, data: seller });
   } catch (error) {
     console.error("Get seller error:", error);
+    return res.status(500).json({ success: false, error: "Internal server error" });
+  }
+}
+
+export async function updateSellerFlag(req: Request, res: Response) {
+  try {
+    const { id } = req.params;
+    const { isFlagged } = req.body;
+
+    if (typeof isFlagged !== "boolean") {
+      return res.status(400).json({ success: false, error: "isFlagged must be a boolean" });
+    }
+
+    const seller = await prisma.seller.update({
+      where: { id },
+      data: { isFlagged },
+    });
+
+    return res.json({ success: true, data: seller });
+  } catch (error) {
+    console.error("Update seller flag error:", error);
     return res.status(500).json({ success: false, error: "Internal server error" });
   }
 }

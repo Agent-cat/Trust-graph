@@ -3,11 +3,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ReactFlow,
+  ReactFlowProvider,
   Background,
   Controls,
   MiniMap,
   useNodesState,
   useEdgesState,
+  useReactFlow,
   MarkerType,
   type Node,
   type Edge,
@@ -61,25 +63,38 @@ const getNumberValue = (val: number | { low: number }): number => {
 const FRAUD_REL_TYPES = ["USES_DEVICE", "USES_IP"];
 
 export default function GraphPage() {
+  return (
+    <ReactFlowProvider>
+      <GraphPageContent />
+    </ReactFlowProvider>
+  );
+}
+
+function GraphPageContent() {
   const [graphData, setGraphData] = useState<GraphData | null>(null);
   const [stats, setStats] = useState<GraphStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [searchId, setSearchId] = useState("seller_2");
-  const [inputId, setInputId] = useState("seller_2");
+  const [searchId, setSearchId] = useState<string>("");
+  const [inputId, setInputId] = useState<string>("");
   const [hidden, setHidden] = useState(false);
   const [verdicts, setVerdicts] = useState<VerdictsData | null>(null);
 
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
+  const { fitView } = useReactFlow();
 
   useEffect(() => {
     async function fetchData() {
       setLoading(true);
       setError("");
       try {
+        const graphUrl = searchId
+          ? `http://localhost:4000/api/graph/neighbors?nodeId=${searchId}&depth=2`
+          : "http://localhost:4000/api/graph/entire-graph";
+
         const [graphRes, statsRes, verdictsRes] = await Promise.all([
-          fetch(`http://localhost:4000/api/graph/neighbors?nodeId=${searchId}&depth=2`),
+          fetch(graphUrl),
           fetch("http://localhost:4000/api/graph/stats"),
           fetch("http://localhost:4000/api/graph/verdicts"),
         ]);
@@ -205,16 +220,17 @@ export default function GraphPage() {
         ringColor = "#f59e0b";
       } else if (isSharedDevice) {
         badge = "HOT";
-        ringColor = "#f59e0b";
+        ringColor = "#f97316";
       }
 
       const bgColor =
         isRiskySeller ? "#dc2626" :
         isSuspiciousCustomer ? "#f59e0b" :
-        node.labels[0] === "Seller" ? "#000000" :
-        node.labels[0] === "Customer" ? "#111827" :
-        node.labels[0] === "Device" ? "#4b5563" :
-        node.labels[0] === "IP" ? "#9ca3af" : "#525252";
+        isSharedDevice ? "#f97316" :
+        node.labels[0] === "Seller" ? "#7c3aed" :
+        node.labels[0] === "Customer" ? "#2563eb" :
+        node.labels[0] === "Device" ? "#0d9488" :
+        node.labels[0] === "IP" ? "#64748b" : "#525252";
 
       return {
         id: node.id,
@@ -297,13 +313,33 @@ export default function GraphPage() {
         };
       });
 
-    setNodes(nodes);
+    setNodes(flowNodes);
     setEdges(flowEdges);
-  }, [graphData, fraudAnalysis, setNodes, setEdges, hidden]);
+    requestAnimationFrame(() => {
+      fitView({ padding: 0.15, duration: 400 });
+    });
+  }, [graphData, fraudAnalysis, setNodes, setEdges, hidden, fitView]);
 
   const onNodeClick = useCallback((_: any, node: Node) => {
-    setSelectedNode(node.data.nodeData);
-  }, []);
+    const label = (node.data as any)?.nodeData?.labels?.[0] || "";
+    const props = (node.data as any)?.nodeData?.properties ?? {};
+    const fraud = (node.data as any)?.fraud ?? null;
+
+    const verdictMatch = verdicts
+      ? [...verdicts.sellers, ...verdicts.customers].find(
+          (v) => v.id === (node.data as any)?.nodeData?.id
+        )
+      : null;
+
+    setSelectedNode({
+      labels: [(node.data as any)?.nodeData?.labels?.[0]],
+      properties: props,
+      fraud,
+      label,
+      displayName: props.name || props.address || (node.data as any)?.nodeData?.id || label,
+      verdict: verdictMatch || null,
+    });
+  }, [verdicts]);
 
   const [selectedNode, setSelectedNode] = useState<any>(null);
 
@@ -328,7 +364,9 @@ export default function GraphPage() {
         <div>
           <h1 className="text-2xl font-bold text-black">Fraud Graph View</h1>
           <p className="text-gray-500 text-sm mt-1">
-            Explore the network and spot fraud rings & shared device clusters
+            {searchId
+              ? `Focusing on "${searchId}" — showing its network`
+              : "Showing the entire network — spot fraud rings & shared device clusters"}
           </p>
         </div>
 
@@ -338,14 +376,23 @@ export default function GraphPage() {
             value={inputId}
             onChange={(e) => setInputId(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && setSearchId(inputId)}
-            placeholder="Enter node ID (e.g., seller_2)"
-            className="px-4 py-2 border border-gray-200 rounded-lg text-sm w-64 focus:outline-none focus:ring-2 focus:ring-black"
+            placeholder="Focus on a node (e.g., seller_2)"
+            className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm w-64 focus:outline-none focus:ring-2 focus:ring-black focus:border-black shadow-sm"
           />
           <button
             onClick={() => setSearchId(inputId)}
             className="px-4 py-2 bg-black text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors"
           >
-            Search
+            Focus
+          </button>
+          <button
+            onClick={() => {
+              setInputId("");
+              setSearchId("");
+            }}
+            className="px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-100 transition-colors"
+          >
+            Entire Graph
           </button>
         </div>
       </div>
@@ -463,9 +510,16 @@ export default function GraphPage() {
               nodeColor={(node: any) => {
                 const f = node.data?.fraud;
                 if (f?.isRiskySeller) return "#dc2626";
-                if (f?.isSuspiciousCustomer || f?.isSharedDevice) return "#f59e0b";
+                if (f?.isSuspiciousCustomer) return "#f59e0b";
+                if (f?.isSharedDevice) return "#f97316";
                 const label = node.data?.nodeData?.labels?.[0];
-                return label === "Customer" ? "#111827" : label === "Seller" ? "#000000" : label === "Device" ? "#4b5563" : "#9ca3af";
+                return label === "Customer"
+                  ? "#2563eb"
+                  : label === "Seller"
+                    ? "#7c3aed"
+                    : label === "Device"
+                      ? "#0d9488"
+                      : "#64748b";
               }}
             />
           </ReactFlow>
@@ -513,7 +567,7 @@ export default function GraphPage() {
 
               <button
                 onClick={() => setHidden((h) => !h)}
-                className="mt-4 w-full px-4 py-2 border border-gray-200 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                className="mt-4 w-full px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-100 transition-colors"
               >
                 {hidden ? "Show Order (PLACED) edges" : "Hide Order (PLACED) edges"}
               </button>
@@ -523,22 +577,141 @@ export default function GraphPage() {
           {/* Selected Node */}
           {selectedNode && (
             <div className="border border-gray-200 rounded-xl p-4">
-              <h2 className="text-sm font-medium text-gray-500 mb-3">Selected Node</h2>
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-sm font-medium text-gray-500">
+                  Selected Node
+                </h2>
+                <button
+                  onClick={() => setSelectedNode(null)}
+                  className="text-xs text-gray-400 hover:text-black transition-colors"
+                >
+                  ✕ Clear
+                </button>
+              </div>
+
               <div className="space-y-3 text-sm">
-                <div>
-                  <span className="text-gray-500">Type: </span>
-                  <span className="px-2 py-0.5 rounded text-white text-xs bg-gray-700">
-                    {selectedNode.labels[0]}
+                {/* Identity */}
+                <div className="flex items-center gap-2">
+                  <span className="px-2 py-0.5 rounded text-white text-xs font-medium"
+                    style={{
+                      backgroundColor:
+                        selectedNode.label === "Seller"
+                          ? "#7c3aed"
+                          : selectedNode.label === "Customer"
+                            ? "#2563eb"
+                            : selectedNode.label === "Device"
+                              ? "#0d9488"
+                              : "#64748b",
+                    }}
+                  >
+                    {selectedNode.displayName}
                   </span>
                 </div>
-                {Object.entries(selectedNode.properties).map(([key, value]) => (
-                  <div key={key} className="flex justify-between">
-                    <span className="text-gray-500">{key}</span>
-                    <span className="font-medium text-black truncate max-w-[150px]">
-                      {String(value)}
-                    </span>
+
+                {/* Fraud status badges */}
+                {selectedNode.fraud && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {selectedNode.fraud.isRiskySeller && (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-600 text-white">
+                        RISK — flagged seller
+                      </span>
+                    )}
+                    {selectedNode.fraud.isSuspiciousCustomer && (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500 text-white">
+                        ? — suspicious customer
+                      </span>
+                    )}
+                    {selectedNode.fraud.isSharedDevice && (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-500 text-white">
+                        HOT — shared device/IP
+                      </span>
+                    )}
                   </div>
-                ))}
+                )}
+
+                {/* Verdict + reasons */}
+                {selectedNode.verdict && (
+                  <div
+                    className={`p-3 rounded-lg ${
+                      verdictStyles[selectedNode.verdict.verdict]?.bg ||
+                      "bg-gray-50"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold uppercase tracking-wide text-gray-500">
+                        Fraud Verdict
+                      </span>
+                      <span
+                        className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+                          verdictStyles[selectedNode.verdict.verdict]?.bg ||
+                          "bg-gray-100"
+                        } ${
+                          verdictStyles[selectedNode.verdict.verdict]?.text ||
+                          "text-gray-600"
+                        }`}
+                      >
+                        {verdictStyles[selectedNode.verdict.verdict]?.label ||
+                          selectedNode.verdict.verdict}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 mt-2">
+                      <div className="flex-1 bg-gray-200 rounded-full h-1.5">
+                        <div
+                          className={`h-1.5 rounded-full ${
+                            verdictStyles[selectedNode.verdict.verdict]?.bar ||
+                            "bg-gray-500"
+                          }`}
+                          style={{ width: `${selectedNode.verdict.score}%` }}
+                        />
+                      </div>
+                      <span className="text-xs font-medium text-gray-600">
+                        {selectedNode.verdict.score}/100
+                      </span>
+                    </div>
+                    {selectedNode.verdict.reasons.length > 0 && (
+                      <div className="mt-2 space-y-1">
+                        {selectedNode.verdict.reasons.map((reason: string, i: number) => (
+                          <p
+                            key={i}
+                            className="text-xs text-gray-700 flex items-start gap-1.5"
+                          >
+                            <span
+                              className={`mt-1 w-1 h-1 rounded-full shrink-0 ${
+                                selectedNode.verdict.verdict === "SAFE"
+                                  ? "bg-green-500"
+                                  : "bg-red-500"
+                              }`}
+                            />
+                            {reason}
+                          </p>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Full properties */}
+                {Object.entries(selectedNode.properties).length > 0 && (
+                  <div>
+                    <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">
+                      Details
+                    </p>
+                    <div className="space-y-1.5">
+                      {Object.entries(selectedNode.properties).map(
+                        ([key, value]) => (
+                          <div key={key} className="flex justify-between gap-2">
+                            <span className="text-gray-500 shrink-0">
+                              {key}
+                            </span>
+                            <span className="font-medium text-black text-right break-all max-w-[150px]">
+                              {String(value)}
+                            </span>
+                          </div>
+                        )
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -549,11 +722,12 @@ export default function GraphPage() {
             <div className="space-y-2">
               {[
                 { color: "#dc2626", label: "Risky Seller (flagged)" },
-                { color: "#f59e0b", label: "Suspicious customer / shared device" },
-                { color: "#111827", label: "Customer" },
-                { color: "#000000", label: "Seller" },
-                { color: "#4b5563", label: "Device" },
-                { color: "#9ca3af", label: "IP Address" },
+                { color: "#f59e0b", label: "Suspicious customer" },
+                { color: "#f97316", label: "Shared device / under-customer-net" },
+                { color: "#7c3aed", label: "Seller" },
+                { color: "#2563eb", label: "Customer" },
+                { color: "#0d9488", label: "Device" },
+                { color: "#64748b", label: "IP Address" },
               ].map((entry) => (
                 <div key={entry.label} className="flex items-center gap-2">
                   <div
@@ -574,8 +748,21 @@ export default function GraphPage() {
 
           {/* Quick Search */}
           <div className="border border-gray-200 rounded-xl p-4">
-            <h2 className="text-sm font-medium text-gray-500 mb-3">Quick Search</h2>
+            <h2 className="text-sm font-medium text-gray-500 mb-3">Quick Focus</h2>
             <div className="space-y-2">
+              <button
+                onClick={() => {
+                  setInputId("");
+                  setSearchId("");
+                }}
+className={`w-full text-left px-3 py-2 border rounded-lg text-sm transition-colors ${
+                    !searchId
+                      ? "border-black bg-gray-50 text-black font-medium"
+                      : "border-gray-300 hover:bg-gray-100 text-gray-700"
+                  }`}
+              >
+                Entire graph (all users)
+              </button>
               {["seller_2", "seller_5", "cust_1", "device_a1", "device_d4"].map((id) => (
                 <button
                   key={id}
@@ -583,7 +770,11 @@ export default function GraphPage() {
                     setInputId(id);
                     setSearchId(id);
                   }}
-                  className="w-full text-left px-3 py-2 border border-gray-200 rounded-lg hover:bg-gray-50 text-sm text-gray-700 transition-colors"
+                  className={`w-full text-left px-3 py-2 border rounded-lg text-sm transition-colors ${
+                    searchId === id
+                      ? "border-black bg-gray-50 text-black font-medium"
+                      : "border-gray-300 hover:bg-gray-100 text-gray-700"
+                  }`}
                 >
                   {id}
                 </button>

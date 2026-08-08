@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { authClient } from "@/lib/auth-client";
+import Modal from "@/components/Modal";
 
 interface OrderItem {
   id: string;
@@ -35,6 +36,7 @@ export default function OrdersPage() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("");
   const [updating, setUpdating] = useState<string | null>(null);
+  const [errorModal, setErrorModal] = useState<string | null>(null);
 
   async function fetchOrders(status = filter) {
     setLoading(true);
@@ -69,10 +71,11 @@ export default function OrdersPage() {
       if (data.success) {
         fetchOrders();
       } else {
-        alert(data.error || "Failed to update order");
+        setErrorModal(data.error || "Failed to update order");
       }
     } catch (error) {
       console.error("Failed to update order:", error);
+      setErrorModal("Failed to update order");
     } finally {
       setUpdating(null);
     }
@@ -119,7 +122,7 @@ export default function OrdersPage() {
             setFilter(e.target.value);
             fetchOrders(e.target.value);
           }}
-          className="px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-black"
+          className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-black focus:border-black"
         >
           <option value="">All Statuses</option>
           <option value="pending">Pending</option>
@@ -193,7 +196,7 @@ export default function OrdersPage() {
                   <button
                     onClick={() => handleUpdateStatus(order.id, "cancelled")}
                     disabled={updating === order.id}
-                    className="px-4 py-2 border border-gray-200 text-sm font-medium rounded-lg hover:bg-red-50 hover:text-red-600 disabled:opacity-50 transition-colors"
+                    className="px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-red-50 hover:text-red-600 disabled:opacity-50 transition-colors"
                   >
                     {updating === order.id ? "..." : "Cancel Order"}
                   </button>
@@ -233,6 +236,15 @@ export default function OrdersPage() {
           ))}
         </div>
       )}
+
+      <Modal
+        open={!!errorModal}
+        type="error"
+        title="Could not update order"
+        message={errorModal || ""}
+        onClose={() => setErrorModal(null)}
+        cancelText="Close"
+      />
     </div>
   );
 }

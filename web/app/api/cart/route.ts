@@ -110,6 +110,81 @@ export async function POST(request: NextRequest) {
   }
 }
 
+export async function PATCH(request: NextRequest) {
+  const { user } = await requireUser();
+  if (!user) {
+    return NextResponse.json(
+      { success: false, error: "Unauthorized" },
+      { status: 401 }
+    );
+  }
+
+  try {
+    const body = await request.json();
+    const { productId, quantity } = body;
+
+    if (!productId) {
+      return NextResponse.json(
+        { success: false, error: "productId is required" },
+        { status: 400 }
+      );
+    }
+
+    const qty = Number(quantity);
+    if (!Number.isFinite(qty) || qty < 0) {
+      return NextResponse.json(
+        { success: false, error: "Invalid quantity" },
+        { status: 400 }
+      );
+    }
+
+    if (qty === 0) {
+      await prisma.cartItem.deleteMany({
+        where: { userId: user.id, productId },
+      });
+      return NextResponse.json({ success: true, quantity: 0 });
+    }
+
+    const product = await prisma.product.findUnique({ where: { id: productId } });
+    if (!product) {
+      return NextResponse.json(
+        { success: false, error: "Product not found" },
+        { status: 404 }
+      );
+    }
+
+    const maxQty = Math.max(product.stock, 1);
+    const finalQty = Math.min(qty, maxQty);
+
+    const cartItem = await prisma.cartItem.upsert({
+      where: {
+        userId_productId: {
+          userId: user.id,
+          productId,
+        },
+      },
+      update: { quantity: finalQty },
+      create: {
+        userId: user.id,
+        productId,
+        quantity: finalQty,
+      },
+    });
+
+    return NextResponse.json({
+      success: true,
+      quantity: finalQty,
+      capped: qty > maxQty,
+    });
+  } catch (error) {
+    console.error("Failed to update cart:", error);
+    return NextResponse.json(
+      { success: false, error: "Failed to update cart" },
+      { status: 500 }
+    );
+  }
+}
+
 export async function DELETE(request: NextRequest) {
   const { user } = await requireUser();
   if (!user) {

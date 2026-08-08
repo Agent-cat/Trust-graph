@@ -30,30 +30,65 @@ interface CaseDetail {
   }[];
 }
 
+const statusStyles: Record<string, string> = {
+  open: "bg-blue-50 text-blue-700",
+  under_review: "bg-amber-50 text-amber-700",
+  resolved: "bg-green-50 text-green-700",
+  dismissed: "bg-gray-100 text-gray-600",
+};
+
 export default function CaseDetailPage() {
   const params = useParams();
   const [caseData, setCaseData] = useState<CaseDetail | null>(null);
   const [loading, setLoading] = useState(true);
+  const [updating, setUpdating] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function fetchCase() {
+    try {
+      const res = await fetch(
+        `http://localhost:4000/api/cases/${params.id}`
+      );
+      const data = await res.json();
+      setCaseData(data.data);
+    } catch (error) {
+      console.error("Failed to fetch case:", error);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   useEffect(() => {
-    async function fetchCase() {
-      try {
-        const res = await fetch(
-          `http://localhost:4000/api/cases/${params.id}`
-        );
-        const data = await res.json();
-        setCaseData(data.data);
-      } catch (error) {
-        console.error("Failed to fetch case:", error);
-      } finally {
-        setLoading(false);
-      }
-    }
-
     if (params.id) {
       fetchCase();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.id]);
+
+  async function changeStatus(status: string, actionLabel: string) {
+    if (!caseData) return;
+    setUpdating(actionLabel);
+    try {
+      const res = await fetch(
+        `http://localhost:4000/api/cases/${params.id}/status`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status }),
+        }
+      );
+      if (!res.ok) {
+        const data = await res.json();
+        setError(data.error || "Failed to update case");
+        return;
+      }
+      await fetchCase();
+    } catch (error) {
+      console.error("Failed to update case:", error);
+    } finally {
+      setUpdating(null);
+    }
+  }
 
   if (loading) {
     return (
@@ -198,23 +233,49 @@ export default function CaseDetailPage() {
         <div className="space-y-6">
           {/* Recommended Action */}
           <div className="border border-gray-200 rounded-xl p-6">
-            <h2 className="text-sm font-medium text-gray-500 mb-4">Recommended Action</h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-medium text-gray-500">Recommended Action</h2>
+              <span
+                className={`px-2.5 py-1 rounded-full text-xs font-medium ${
+                  statusStyles[caseData.status] || "bg-gray-100 text-gray-600"
+                }`}
+              >
+                {caseData.status.replace("_", " ")}
+              </span>
+            </div>
             <div className="p-4 bg-gray-50 rounded-lg">
               <p className="font-semibold text-black">
                 {caseData.action.replace(/_/g, " ")}
               </p>
             </div>
             <div className="mt-4 space-y-2">
-              <button className="w-full px-4 py-2 bg-black text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors">
-                Approve Action
+              <button
+                onClick={() => changeStatus("resolved", "Approve")}
+                disabled={updating !== null || caseData.status === "resolved"}
+                className="w-full px-4 py-2 bg-black text-white text-sm font-medium rounded-lg hover:bg-gray-800 disabled:opacity-40 transition-colors"
+              >
+                {updating === "Approve" ? "Updating…" : "Approve Action"}
               </button>
-              <button className="w-full px-4 py-2 border border-gray-200 text-black text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors">
-                Send For Review
+              <button
+                onClick={() => changeStatus("under_review", "Review")}
+                disabled={updating !== null || caseData.status === "under_review"}
+                className="w-full px-4 py-2 bg-white border border-gray-300 text-black text-sm font-medium rounded-lg hover:bg-gray-100 disabled:opacity-40 transition-colors"
+              >
+                {updating === "Review" ? "Updating…" : "Send For Review"}
               </button>
-              <button className="w-full px-4 py-2 border border-gray-200 text-gray-500 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors">
-                Dismiss Case
+              <button
+                onClick={() => changeStatus("dismissed", "Dismiss")}
+                disabled={updating !== null || caseData.status === "dismissed"}
+                className="w-full px-4 py-2 bg-white border border-gray-300 text-gray-600 text-sm font-medium rounded-lg hover:bg-gray-100 disabled:opacity-40 transition-colors"
+              >
+                {updating === "Dismiss" ? "Updating…" : "Dismiss Case"}
               </button>
             </div>
+            {error && (
+              <p className="mt-3 text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg p-2">
+                {error}
+              </p>
+            )}
           </div>
 
           {/* Seller Info */}

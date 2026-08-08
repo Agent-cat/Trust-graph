@@ -1,5 +1,6 @@
 import { Router } from "express";
 import {
+  getEntireGraph,
   getGraphNeighbors,
   getGraphStats,
   getSellerGraphRisk,
@@ -8,6 +9,7 @@ import {
 
 const router = Router();
 
+router.get("/entire-graph", getEntireGraph);
 router.get("/neighbors", getGraphNeighbors);
 router.get("/stats", getGraphStats);
 router.get("/verdicts", getGraphVerdicts);

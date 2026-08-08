@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import Modal from "@/components/Modal";
 
 interface AppealDetail {
   id: string;
@@ -31,6 +32,11 @@ export default function AppealReviewPage() {
   const [loading, setLoading] = useState(true);
   const [reviewerNote, setReviewerNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [modal, setModal] = useState<{
+    type: "success" | "error";
+    title: string;
+    message: string;
+  } | null>(null);
 
   useEffect(() => {
     async function fetchAppeal() {
@@ -55,7 +61,11 @@ export default function AppealReviewPage() {
 
   async function handleReview(status: "approved" | "rejected") {
     if (!reviewerNote.trim()) {
-      alert("Please add a reviewer note");
+      setModal({
+        type: "error",
+        title: "Reviewer note required",
+        message: "Please add a reviewer note before submitting your decision.",
+      });
       return;
     }
 
@@ -72,14 +82,28 @@ export default function AppealReviewPage() {
 
       const data = await res.json();
       if (data.success) {
-        alert(`Appeal ${status}`);
-        router.push("/dashboard/appeals");
+        setModal({
+          type: "success",
+          title: `Appeal ${status}`,
+          message:
+            status === "approved"
+              ? "The payout hold has been removed and this appeal is closed."
+              : "The appeal has been rejected and sent back for review.",
+        });
       } else {
-        alert(data.error || "Failed to review appeal");
+        setModal({
+          type: "error",
+          title: "Review failed",
+          message: data.error || "Failed to review appeal",
+        });
       }
     } catch (error) {
       console.error("Review error:", error);
-      alert("Failed to review appeal");
+      setModal({
+        type: "error",
+        title: "Review failed",
+        message: "Something went wrong while reviewing this appeal.",
+      });
     } finally {
       setSubmitting(false);
     }
@@ -166,7 +190,7 @@ export default function AppealReviewPage() {
               value={reviewerNote}
               onChange={(e) => setReviewerNote(e.target.value)}
               placeholder="Add your review notes..."
-              className="w-full p-4 border border-gray-200 rounded-lg h-32 resize-none focus:outline-none focus:ring-2 focus:ring-black text-sm"
+              className="w-full p-4 bg-white border border-gray-300 rounded-lg h-32 resize-none shadow-sm focus:outline-none focus:ring-2 focus:ring-black text-sm"
             />
           </div>
         </div>
@@ -249,6 +273,22 @@ export default function AppealReviewPage() {
           </div>
         </div>
       </div>
+
+      <Modal
+        open={!!modal}
+        type={modal?.type || "info"}
+        title={modal?.title}
+        message={modal?.message}
+        onClose={() => {
+          if (modal?.type === "success") {
+            setModal(null);
+            router.push("/dashboard/appeals");
+          } else {
+            setModal(null);
+          }
+        }}
+        cancelText="Close"
+      />
     </div>
   );
 }

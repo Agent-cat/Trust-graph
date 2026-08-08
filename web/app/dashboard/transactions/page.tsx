@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Modal from "@/components/Modal";
 
 interface Transaction {
   id: string;
@@ -20,6 +21,11 @@ export default function TransactionsPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [analyzing, setAnalyzing] = useState<string | null>(null);
+  const [analysis, setAnalysis] = useState<{
+    score: number;
+    level: string;
+    action: string;
+  } | null>(null);
 
   useEffect(() => {
     async function fetchTransactions() {
@@ -47,9 +53,11 @@ export default function TransactionsPage() {
       });
       const data = await res.json();
       if (data.success) {
-        alert(
-          `Risk: ${data.data.risk.score}/100\nLevel: ${data.data.risk.level}\nAction: ${data.data.action}`
-        );
+        setAnalysis({
+          score: data.data.risk.score,
+          level: data.data.risk.level,
+          action: data.data.action,
+        });
       }
     } catch (error) {
       console.error("Analysis failed:", error);
@@ -156,6 +164,23 @@ export default function TransactionsPage() {
           </tbody>
         </table>
       </div>
+
+      {/* Analysis result modal */}
+      <Modal
+        open={!!analysis}
+        type="info"
+        title="Risk Analysis Result"
+        message={
+          analysis
+            ? `Risk score ${analysis.score}/100 · Level ${analysis.level}. Recommended action: ${analysis.action.replace(
+                /_/g,
+                " "
+              )}`
+            : ""
+        }
+        onClose={() => setAnalysis(null)}
+        cancelText="Close"
+      />
     </div>
   );
 }

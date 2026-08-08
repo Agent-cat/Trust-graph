@@ -77,7 +77,7 @@ export default function UsersPage() {
             setFilter(e.target.value);
             fetchUsers(e.target.value);
           }}
-          className="px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-black"
+          className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-black focus:border-black"
         >
           <option value="">All Roles</option>
           <option value="admin">Admin</option>

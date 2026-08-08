@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import Modal from "@/components/Modal";
 
 interface CartLineItem {
   id: string;
@@ -23,6 +24,11 @@ export default function CartPage() {
   const [checkingOut, setCheckingOut] = useState(false);
   const [shippingAddress, setShippingAddress] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("cod");
+  const [modal, setModal] = useState<{
+    type: "success" | "error";
+    title: string;
+    message: string;
+  } | null>(null);
 
   async function fetchCart() {
     try {
@@ -42,6 +48,30 @@ export default function CartPage() {
   useEffect(() => {
     fetchCart();
   }, []);
+
+  async function updateQuantity(productId: string, newQty: number) {
+    if (newQty < 0) return;
+    try {
+      const res = await fetch("/api/cart", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ productId, quantity: newQty }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        fetchCart();
+        if (data.capped) {
+          setModal({
+            type: "error",
+            title: "Stock limit reached",
+            message: "You can't add more of this item — it's out of stock beyond this quantity.",
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Failed to update quantity:", error);
+    }
+  }
 
   async function handleRemove(productId: string) {
     try {
@@ -73,15 +103,28 @@ export default function CartPage() {
 
       const data = await res.json();
       if (data.success) {
-        alert("Order placed successfully!");
+        setModal({
+          type: "success",
+          title: "Order placed!",
+          message: `Your order #${data.data.id?.slice(0, 8) || ""} has been placed successfully.`,
+        });
         setItems([]);
         setTotal(0);
+        setShippingAddress("");
       } else {
-        alert(data.error || "Failed to place order");
+        setModal({
+          type: "error",
+          title: "Order failed",
+          message: data.error || "Failed to place order",
+        });
       }
     } catch (error) {
       console.error("Checkout error:", error);
-      alert("Failed to place order");
+      setModal({
+        type: "error",
+        title: "Order failed",
+        message: "Something went wrong while placing your order.",
+      });
     } finally {
       setCheckingOut(false);
     }
@@ -148,18 +191,41 @@ export default function CartPage() {
                   </p>
                 </div>
 
-                <div className="text-right">
-                  <p className="text-sm text-gray-600">
-                    Qty: {item.quantity}
-                  </p>
-                  <p className="font-medium text-black mt-1">
+                {/* Quantity stepper */}
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
+                    disabled={item.quantity <= 1}
+                    className="w-8 h-8 flex items-center justify-center bg-white border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-100 disabled:opacity-40 transition-colors"
+                    aria-label="Decrease quantity"
+                  >
+                    −
+                  </button>
+                  <span className="w-10 text-center text-sm font-medium text-black">
+                    {item.quantity}
+                  </span>
+                  <button
+                    onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
+                    disabled={item.quantity >= item.product.stock}
+                    className="w-8 h-8 flex items-center justify-center bg-white border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-100 disabled:opacity-40 transition-colors"
+                    aria-label="Increase quantity"
+                  >
+                    +
+                  </button>
+                </div>
+
+                <div className="text-right w-24">
+                  <p className="font-medium text-black">
                     ₹{(item.product.price * item.quantity).toLocaleString()}
                   </p>
+                  {item.quantity >= item.product.stock && (
+                    <p className="text-[10px] text-orange-500">Max stock</p>
+                  )}
                 </div>
 
                 <button
                   onClick={() => handleRemove(item.product.id)}
-                  className="px-3 py-1.5 border border-gray-200 text-xs text-gray-500 rounded-lg hover:bg-red-50 hover:text-red-600 transition-colors"
+                  className="px-3 py-1.5 bg-white border border-gray-300 text-xs text-gray-600 rounded-lg hover:bg-red-50 hover:text-red-600 transition-colors"
                 >
                   Remove
                 </button>
@@ -200,7 +266,7 @@ export default function CartPage() {
                 <textarea
                   value={shippingAddress}
                   onChange={(e) => setShippingAddress(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm h-20 resize-none focus:outline-none focus:ring-2 focus:ring-black"
+                  className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm h-20 resize-none shadow-sm focus:outline-none focus:ring-2 focus:ring-black focus:border-black"
                   placeholder="Enter your shipping address"
                 />
               </div>
@@ -212,7 +278,7 @@ export default function CartPage() {
                 <select
                   value={paymentMethod}
                   onChange={(e) => setPaymentMethod(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-black"
+                  className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-black focus:border-black"
                 >
                   <option value="cod">Cash on Delivery</option>
                   <option value="upi">UPI</option>
@@ -231,6 +297,15 @@ export default function CartPage() {
           </div>
         </div>
       )}
+
+      <Modal
+        open={!!modal}
+        type={modal?.type || "info"}
+        title={modal?.title}
+        message={modal?.message}
+        onClose={() => setModal(null)}
+        cancelText="Close"
+      />
     </div>
   );
 }
