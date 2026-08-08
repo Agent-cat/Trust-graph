@@ -31,3 +31,7 @@ coverage/
 
 # docker
 docker-compose.override.yml
+
+# ML datasets (large)
+ml/**/data/
+*.csv.zip
