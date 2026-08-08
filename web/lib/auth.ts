@@ -1,9 +1,7 @@
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { nextCookies } from "better-auth/next-js";
-import { admin } from "better-auth/plugins";
 import { PrismaClient } from "@prisma/client";
-import { ac, roles } from "./permissions";
 
 const prisma = new PrismaClient();
 
@@ -37,7 +35,7 @@ export const auth = betterAuth({
         type: "string",
         required: false,
         defaultValue: "customer",
-        input: false,
+        input: true,
       },
       phone: {
         type: "string",
@@ -49,13 +47,31 @@ export const auth = betterAuth({
       },
     },
   },
-  plugins: [
-    nextCookies(),
-    admin({
-      ac,
-      roles,
-    }),
-  ],
+  databaseHooks: {
+    user: {
+      create: {
+        before: async (user) => {
+          const requestedRole = (user as any).role;
+          if (
+            requestedRole &&
+            (requestedRole === "seller" || requestedRole === "customer")
+          ) {
+            return {
+              data: {
+                role: requestedRole,
+              },
+            };
+          }
+          return {
+            data: {
+              role: "customer",
+            },
+          };
+        },
+      },
+    },
+  },
+  plugins: [nextCookies()],
 });
 
 export type Session = typeof auth.$Infer.Session;
